@@ -1,0 +1,9 @@
+[deps]
+
+[pip.deps]
+numpy= ""
+h5py = ""
+pyscf = ""
+sympy = ""
+openfermion = "@ https://github.com/quantumlib/OpenFermion/archive/refs/heads/master.zip"
+openfermionpyscf = ""
