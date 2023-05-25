@@ -20,7 +20,7 @@ scipy = pyimport("scipy")
 sympy = pyimport("sympy")
 of = pyimport("openfermion")
 
-UTILS_DIR = pwd() * "/src/UTILS/"
+UTILS_DIR = @__DIR__
 sys = pyimport("sys")
 sys.path.append(UTILS_DIR)
 ham = pyimport("ham_utils")
