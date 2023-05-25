@@ -1,5 +1,8 @@
 # QuantumMAMBO.jl: Efficient many-body routines in Julia
 
+QuantumMAMBO provides structures for many-body objects in quantum computing. They can all be seen in `src/UTILS/structures.jl`. In particular, it provides the fermionic operators `F_OP` specially geared towards two-electron number-conserving operators, `Q_OP` for qubit operators, and `M_OP`for Majorana operators coming from fermionic operators. All operators and unitaries have structured classes, which in the future will be used for efficient compilation of quantum circuits and resource estimates.
+
+
 ## Using QuantumMAMBO.jl
 `QuantumMAMBO.jl` includes efficient implementations for fermionic and qubit operators. To obtain results shown in Ref.(1), run on a terminal (e.g. for LiH):
 
