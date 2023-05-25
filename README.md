@@ -6,7 +6,7 @@ QuantumMAMBO provides structures for many-body objects in quantum computing. The
 ## Using QuantumMAMBO.jl
 `QuantumMAMBO.jl` includes efficient implementations for fermionic and qubit operators. To obtain results shown in Ref.(1), run on a terminal (e.g. for LiH):
 
-julia L1.jl lih
+`julia L1.jl lih`
 
 All options and tolerances can be seen in config.jl. See installation for more information.
 
