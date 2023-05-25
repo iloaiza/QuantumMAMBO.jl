@@ -1,4 +1,4 @@
-module MAMBO
+module QuantumMAMBO
 	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays
 
 	if !(@isdefined CONFIG_LOADED) #only include config file one time so constants can be later redefined
