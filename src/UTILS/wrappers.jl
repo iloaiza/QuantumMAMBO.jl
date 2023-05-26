@@ -95,7 +95,12 @@ function ORBITAL_OPTIMIZATION(H; verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOL
 	return H_rot
 end
 
-function RUN(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO = true,
+function RUN(H; kwargs...)
+	@warn "RUN function name has been deprecated, use RUN_L1 instead..."
+	return RUN_L1(H; kwargs...)
+end
+
+function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO = true,
 			 DO_SQRT = false, max_frags = 100, verbose=true, COUNT=false, DO_TROTTER = false,
 			 DO_MHC = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
 			 DO_FC = true, SYM_RED = true)
