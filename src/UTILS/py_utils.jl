@@ -49,12 +49,11 @@ function obtain_H(mol_name; basis="sto3g", ferm=true, geometry=1)
 	#returns fermionic operator of H in orbitals and number of electrons
 	h_ferm, num_elecs = obtain_OF_hamiltonian(mol_name, basis=basis, ferm=ferm, geometry=geometry)
 	
-	tbt = pyconvert(Array{Float64}, fermionic.get_chemist_tbt(h_ferm, spin_orb=false))
-	h1b = h_ferm - fermionic.get_ferm_op(tbt, false)
-    h1b = of_simplify(h1b)
-	obt = pyconvert(Array{Float64}, fermionic.get_obt(h1b, spin_orb=false))
+	Hconst, obt, tbt = fermionic.to_tensors(h_ferm)
+	obt = pyconvert(Array{Float64},obt)
+	tbt = pyconvert(Array{Float64},tbt)
 
-	mbts = ([pyconvert(Float64, h_ferm.constant)], obt, tbt)
+	mbts = ([pyconvert(Float64, Hconst)], obt, tbt)
 	
 	return F_OP(2,mbts,[true,true,true],false,size(obt)[1]), pyconvert(Int64, num_elecs)
 end
@@ -162,4 +161,13 @@ function OF_qubit_op_range(op_qubit, n_qubit=pyconvert(Int64,of.count_qubits(op_
 	end	
 	
 	return E_range
+end
+
+function OF_to_F_OP(H, spin_orb=false)
+	#H should be an openfermion FermionOperator object
+	h0_py, obt_py, tbt_py = fermionic.to_tensors(H, spin_orb=spin_orb)
+	h0 = pyconvert(Float64, h0_py)
+	obt = pyconvert(Array{Float64}, obt_py)
+	tbt = pyconvert(Array{Float64}, tbt_py)
+	return F_OP(([h0], obt, tbt), spin_orb)
 end

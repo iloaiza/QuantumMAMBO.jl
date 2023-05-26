@@ -1,36 +1,40 @@
 module QuantumMAMBO
 	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays
 
+	src_dir = @__DIR__
+	UTILS_dir = src_dir * "/UTILS/"
 	if !(@isdefined CONFIG_LOADED) #only include config file one time so constants can be later redefined
 		include("config.jl")
 	end
 
 	if !(@isdefined SAVING_LOADED) && SAVING #only include saving file one time if saving option is on
-		include("UTILS/saving.jl")
+		include(UTILS_dir * "saving.jl")
 		global SAVING_LOADED = true
 	end
 
-	include("UTILS/symplectic.jl")
-	include("UTILS/structures.jl")
-	include("UTILS/unitaries.jl")
-	include("UTILS/fermionic.jl")
-	include("UTILS/cost.jl")
-	include("UTILS/decompose.jl")
-	include("UTILS/symmetries.jl")
-	include("UTILS/linprog.jl")
-	include("UTILS/guesses.jl")
-	include("UTILS/lcu.jl")
-	include("UTILS/py_utils.jl")
-	include("UTILS/majorana.jl")
-	include("UTILS/qubit.jl")
-	include("UTILS/orbitals.jl")
-	include("UTILS/bliss.jl")
-	include("UTILS/trotter.jl")
-	include("UTILS/projectors.jl")
+	include(UTILS_dir * "symplectic.jl")
+	include(UTILS_dir * "structures.jl")
+	include(UTILS_dir * "unitaries.jl")
+	include(UTILS_dir * "fermionic.jl")
+	include(UTILS_dir * "cost.jl")
+	include(UTILS_dir * "decompose.jl")
+	include(UTILS_dir * "symmetries.jl")
+	include(UTILS_dir * "linprog.jl")
+	include(UTILS_dir * "guesses.jl")
+	include(UTILS_dir * "lcu.jl")
+	function __init__()
+		include(UTILS_dir * "py_utils.jl")
+	end
+	include(UTILS_dir * "majorana.jl")
+	include(UTILS_dir * "qubit.jl")
+	include(UTILS_dir * "orbitals.jl")
+	include(UTILS_dir * "bliss.jl")
+	include(UTILS_dir * "trotter.jl")
+	include(UTILS_dir * "projectors.jl")
 
 	if @isdefined myid
-		include("UTILS/parallel.jl")
+		include(UTILS_dir * "parallel.jl")
 	end
 
-	include("UTILS/wrappers.jl")
+	include(UTILS_dir * "wrappers.jl")
 end

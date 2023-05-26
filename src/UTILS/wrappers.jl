@@ -1,5 +1,5 @@
-function SAVELOAD_HAM(mol_name, FILENAME)
-	if SAVING && isfile(FILENAME*".h5")
+function SAVELOAD_HAM(mol_name, FILENAME, DO_SAVE = SAVING)
+	if DO_SAVE && isfile(FILENAME*".h5")
 		fid = h5open(FILENAME*".h5", "cw")
 		if haskey(fid, "MOLECULAR_DATA")
 			println("Loading molecular data from $FILENAME.h5")
@@ -29,7 +29,7 @@ function SAVELOAD_HAM(mol_name, FILENAME)
 		end
 	else 
 		H, η = obtain_H(mol_name)
-		if SAVING
+		if DO_SAVE
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			fid = h5open(FILENAME*".h5", "cw")
 			if haskey(fid, "MOLECULAR_DATA")
@@ -51,14 +51,14 @@ function SAVELOAD_HAM(mol_name, FILENAME)
 	return H, η
 end
 
-function INTERACTION(H; SAVENAME=DATADIR*"INTERACTION.h5",verbose=false)
+function INTERACTION(H; SAVENAME=DATAFOLDER*"INTERACTION.h5",verbose=false)
 	H0 = CSA_SD_greedy_decomposition(H :: F_OP, 1, verbose=verbose, SAVENAME=SAVENAME)[1]
 	HR = H - H0
 
 	return HR
 end
 
-function ORBITAL_OPTIMIZATION(H; verbose=true, SAVELOAD=SAVING, SAVENAME=DATADIR*"OO.h5", do_Givens = OO_GIVENS)
+function ORBITAL_OPTIMIZATION(H; verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"OO.h5", do_Givens = OO_GIVENS)
 	θmin = false
 	if SAVELOAD
 		fid = h5open(SAVENAME, "cw")
@@ -114,7 +114,7 @@ function RUN(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO 
 	# name: default name for saving, false means no saving is done
 
 	if name == true
-		name = DATADIR*"RUN.h5"
+		name = DATAFOLDER*"RUN.h5"
 	end
 
 	if DO_ΔE
@@ -313,7 +313,7 @@ function HUBBARD_RUN(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true
 	# name: default name for saving, false means no saving is done
 
 	if name == true
-		name = DATADIR*"RUN.h5"
+		name = DATAFOLDER*"RUN.h5"
 	end
 
 	if DO_ΔE

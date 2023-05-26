@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import itertools
 from openfermion import FermionOperator, hermitian_conjugated, normal_ordered, QubitOperator
+import openfermion as of
 
 def get_one_body_terms(H):
     '''
@@ -297,7 +298,7 @@ def get_two_body_tensor(H : FermionOperator, n = None):
                 term[0][0], term[1][0],
                 term[2][0], term[3][0]
             ] = val
-    return tbt 
+    return tbt
 
 def get_obt(H : FermionOperator, n = None, spin_orb=False, tiny=1e-12):
     '''
@@ -382,9 +383,9 @@ def get_chemist_obt_correction(H : FermionOperator, n = None, spin_orb=False):
     n_orb = phy_tbt.shape[0]
     chem_obt = np.zeros((n_orb,n_orb))
     for i in range(n_orb):
-    	for j in range(n_orb):
-    		for k in range(n_orb):
-    			chem_obt[i,j] -= phy_tbt[i,k,j,k]
+        for j in range(n_orb):
+            for k in range(n_orb):
+                chem_obt[i,j] -= phy_tbt[i,k,j,k]
 
     if spin_orb:
         return chem_obt
@@ -466,3 +467,51 @@ def Pauli_filter(H : QubitOperator, tol=5e-4):
             if np.abs(val) > tol:
                 H_filt += QubitOperator(term=pw, coefficient=val)
     return H_filt
+
+def get_tbt(H : FermionOperator, n = None, spin_orb=False):
+    '''
+    Obtain the 4-rank tensor that represents two body interaction in H.
+    In chemist ordering a^ a a^ a.
+    In addition, simplify tensor assuming symmetry between alpha/beta coefficients
+    '''
+    if n is None:
+        n = get_spin_orbitals(H)
+
+    phy_tbt = np.zeros((n, n, n, n))
+    for term, val in H.terms.items():
+        if len(term) == 4:
+            phy_tbt[
+                term[0][0], term[1][0],
+                term[2][0], term[3][0]
+            ] = np.real_if_close(val)
+
+    chem_tbt = np.transpose(phy_tbt, [0, 3, 1, 2])
+    chem_tbt_sym = (chem_tbt - np.transpose(chem_tbt, [0,3,2,1]) + np.transpose(chem_tbt, [2,3,0,1]) - np.transpose(chem_tbt, [2,1,0,3]) ) / 4.0
+
+    # Spin-orbital to orbital
+    n_orb = phy_tbt.shape[0]
+    n_orb = n_orb // 2
+    alpha_indices = list(range(0, n_orb * 2, 2))
+    beta_indices = list(range(1, n_orb * 2, 2))
+
+    chem_tbt_orb = (chem_tbt_sym[np.ix_(alpha_indices, alpha_indices, beta_indices, beta_indices)]
+                    - np.transpose(chem_tbt_sym[np.ix_(alpha_indices, beta_indices, beta_indices, alpha_indices)], [0,3,2,1]))
+    if spin_orb:
+        chem_tbt = np.zeros_like(chem_tbt_sym)
+        n = chem_tbt_orb.shape[0]
+        for i, j, k, l in product(range(n), repeat=4):
+            for a, b in product(range(2), repeat=2):
+                chem_tbt[(2*i+a, 1), (2*j+a, 0), (2*k+b, 1), (2*l+b, 0)] = chem_tbt_orb[i,j,k,l]
+        return chem_tbt
+    else:
+        return chem_tbt_orb
+
+
+def to_tensors(H : FermionOperator, n=None, spin_orb=False):
+    no_h_ferm = normal_ordered(H)
+    tbt = get_tbt(no_h_ferm, spin_orb = spin_orb)
+    h1b = no_h_ferm - get_ferm_op(tbt, spin_orb)
+    h1b = normal_ordered(h1b)
+    obt = get_obt(h1b, spin_orb=spin_orb)
+
+    return H.constant, obt, tbt

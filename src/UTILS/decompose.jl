@@ -1,4 +1,4 @@
-function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATADIR*"CSA.h5")
+function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA.h5")
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1:2] .= false #only optimize 2-body tensor
 
@@ -101,7 +101,7 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA)
 	return optimize(cost, x0, BFGS())
 end
 
-function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATADIR*"CSA_SD.h5")
+function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA_SD.h5")
 	#same as CSA decomposition, but includes optimization of one-body term
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1] = false #only optimize 1-body and 2-body tensors
