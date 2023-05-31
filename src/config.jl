@@ -4,6 +4,8 @@ const F2Q_map = "jw"
 const SAVING = true #save/load quantities as they are generated
 
 #Decomposition options
+const DECOMPOSITION_PRINT = false #verbose during decompositions (useful for very large systems). false for no printout
+								 #integer number N for print every N steps
 const SVD_for_CSA = true #starting conditions for each CSA step are taken from SVD solution
 const SVD_for_CSA_SD = true #starting conditions for each CSA_SD step are taken from SVD solution, only considers two-body
 const CSA_GIVENS = true #whether unitary rotations for CSA are calculated as products of Givens or directly from e.g. SO(N) algebra exponential

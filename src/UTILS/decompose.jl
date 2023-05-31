@@ -79,7 +79,7 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=tr
 	return Farr
 end
 
-function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA)
+function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_PRINT)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 
@@ -98,7 +98,11 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA)
 		return L2_partial_cost(F, to_OP(Fx))
 	end
 
-	return optimize(cost, x0, BFGS())
+	if print == false
+		return optimize(cost, x0, BFGS())
+	else
+		return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+	end
 end
 
 function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA_SD.h5")
@@ -186,7 +190,7 @@ function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose
 	return Farr
 end
 
-function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD)
+function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print=DECOMPOSITION_PRINT)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 
@@ -205,7 +209,11 @@ function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD)
 		return L2_partial_cost(F, to_OP(Fx))
 	end
 
-	return optimize(cost, x0, BFGS())
+	if print == false
+		return optimize(cost, x0, BFGS())
+	else
+		return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+	end
 end
 
 function THC_fixed_decomposition(Ftarg :: F_OP, α, θ0 = 2π*rand(Ftarg.N-1, α), ζ0 = zeros(Int(α*(α+1)/2)))
