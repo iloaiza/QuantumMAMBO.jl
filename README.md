@@ -48,10 +48,14 @@ By default, `QuantumMAMBO.jl` will use the package [`PythonCall`](https://github
 
 ### Main folder
 	- L1.jl: full workflow for obtaining LCU 1-norms for all decompositions/methods
-	- build.jl: single module for loading all utilities
-	- config.jl: general parameters and settings for all functions
-	- install.sh: installer file, see Installation section for more information
+	- Project.toml: package metadata and dependencies
+	- CondaPkg.toml: python installation dependencies for micromamba environment
 
+
+### src foler
+	- config.jl: general parameters and settings for all functions
+	- QuantumMAMBO.jl: wrapper for the module, includes all necessary files
+	- UTILS folder: contains all functions
 
 ## References
 This code was developped and used for all results in the publications:
