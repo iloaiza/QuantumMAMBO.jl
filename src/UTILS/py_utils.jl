@@ -45,9 +45,26 @@ function obtain_OF_hamiltonian(mol_name; basis="sto3g", ferm=true, geometry=1)
 	return ham.get_system(mol_name,ferm=ferm,basis=basis,geometry=geometry,n_elec=true)		
 end
 
+function xyz_OF_hamiltonian(xyz_string; basis="sto3g", spin=0)
+	return ham.system_from_xyz(xyz_string, basis=basis, n_elec = true, spin=0, ferm=true)
+end
+
 function obtain_H(mol_name; basis="sto3g", ferm=true, geometry=1)
 	#returns fermionic operator of H in orbitals and number of electrons
 	h_ferm, num_elecs = obtain_OF_hamiltonian(mol_name, basis=basis, ferm=ferm, geometry=geometry)
+	
+	Hconst, obt, tbt = fermionic.to_tensors(h_ferm)
+	obt = pyconvert(Array{Float64},obt)
+	tbt = pyconvert(Array{Float64},tbt)
+
+	mbts = ([pyconvert(Float64, Hconst)], obt, tbt)
+	
+	return F_OP(2,mbts,[true,true,true],false,size(obt)[1]), pyconvert(Int64, num_elecs)
+end
+
+function H_from_xyz(xyz_string; basis="sto3g", spin=0)
+	#returns fermionic operator of H in orbitals and number of electrons
+	h_ferm, num_elecs = xyz_OF_hamiltonian(xyz_string, basis=basis, spin=spin)
 	
 	Hconst, obt, tbt = fermionic.to_tensors(h_ferm)
 	obt = pyconvert(Array{Float64},obt)

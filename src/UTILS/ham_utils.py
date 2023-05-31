@@ -4,6 +4,7 @@ import h5py
 from openfermion import FermionOperator, QubitOperator, MolecularData, hermitian_conjugated, get_molecular_data
 from openfermionpyscf import run_pyscf
 from openfermion.transforms import get_fermion_operator
+import pyscf
 
 def get_spin(orb):
     '''
@@ -65,6 +66,44 @@ def get_system(mol_name, ferm = False, basis='sto3g', geometry=1, n_elec = False
             return get_fermion_operator(ham), mol.n_electrons
         else:
             return ham, mol.n_electrons
+
+def system_from_xyz(xyz, ferm = False, basis='sto3g', n_elec = False, spin=0):
+    '''
+    Obtain system from xyz string
+    '''
+    g = xyz_to_type(xyz)
+    print("g = {}".format(g))
+    mol = MolecularData(g, basis, 1, 0)
+    mol = run_pyscf(mol)
+    ham = mol.get_molecular_hamiltonian()
+    if n_elec == False:
+        if ferm:
+            return get_fermion_operator(ham)
+        else:
+            return ham
+    else:
+        if ferm:
+            return get_fermion_operator(ham), mol.n_electrons
+        else:
+            return ham, mol.n_electrons
+
+def xyz_to_type(xyz):
+    molData = []
+
+    for s_line in xyz:
+        s_list = s_line.split(" ")
+        atom = [s_list[0]]
+        coords = []
+        for i in range(1, len(s_list)):
+            word = s_list[i]
+            if len(word) > 0 and word != "\n":
+                print(word)
+                coords += [float(word)]
+        atom += [coords]
+        molData += [atom]
+
+    return molData
+
 
 def chooseType(typeHam, geometries):
     '''

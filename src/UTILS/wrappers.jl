@@ -16,7 +16,7 @@ function SAVELOAD_HAM(mol_name, FILENAME, DO_SAVE = SAVING)
 			if haskey(fid, "MOLECULAR_DATA")
 				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
 				close(fid)
-				oldfile(mol_name)
+				oldfile(FILENAME*".h5")
 				fid = h5open(FILENAME*".h5", "cw")
 			end
 			create_group(fid, "MOLECULAR_DATA")
@@ -29,6 +29,59 @@ function SAVELOAD_HAM(mol_name, FILENAME, DO_SAVE = SAVING)
 		end
 	else 
 		H, η = obtain_H(mol_name)
+		if DO_SAVE
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			fid = h5open(FILENAME*".h5", "cw")
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists."
+				close(fid)
+				oldfile(FILENAME)
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  H.mbts[1]
+			MOL_DATA["obt"] =  H.mbts[2]
+			MOL_DATA["tbt"] =  H.mbts[3]
+			MOL_DATA["eta"] =  η
+			close(fid)
+		end
+	end
+
+	return H, η
+end
+
+function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING)
+	if DO_SAVE && isfile(FILENAME*".h5")
+		fid = h5open(FILENAME*".h5", "cw")
+		if haskey(fid, "MOLECULAR_DATA")
+			println("Loading molecular data from $FILENAME.h5")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			h_const = read(MOL_DATA,"h_const")
+			obt = read(MOL_DATA,"obt")
+			tbt = read(MOL_DATA,"tbt")
+			η = read(MOL_DATA,"eta")
+			close(fid)
+			H = F_OP((h_const,obt,tbt))
+		else
+			H, η = H_from_xyz(xyz_string)
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
+				close(fid)
+				oldfile(FILENAME*".h5")
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  H.mbts[1]
+			MOL_DATA["obt"] =  H.mbts[2]
+			MOL_DATA["tbt"] =  H.mbts[3]
+			MOL_DATA["eta"] =  η
+			close(fid)
+		end
+	else 
+		H, η = H_from_xyz(xyz_string)
 		if DO_SAVE
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			fid = h5open(FILENAME*".h5", "cw")
