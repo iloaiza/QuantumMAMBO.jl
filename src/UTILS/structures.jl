@@ -194,13 +194,6 @@ struct single_majorana_rotation <: REAL_F_UNITARY
 	θs :: Array{Float64, 1} #N-1 coeffs
 end
 
-struct single_orbital_rotation <: REAL_F_UNITARY
-	#corresponds to THC rotations as well, but represented as
-	#γ_u⃗ = ∑_n c_n γ_n, with ∑_n|c_n|ˆ2 = 1
-	N :: Int64 #number of orbitals
-	cns :: Array{Float64, 1} #N coeffs, must be normalized
-end
-
 struct givens_orbital_rotation  <: F_UNITARY
 	#rotates molecular orbitals, includes both real and imaginary generators
 	N :: Int64 #number of orbitals
@@ -254,13 +247,6 @@ end
 struct MTD_CP4 <: FRAGMENTATION_TECH
 	# Fragments of CP4 decomposition
 	# OP = ∑_στ U[1]' * γ1σ,0 * U[1] * U[2]' * γ1σ,1 * U[2] * U[3]' * γ1τ,0 * U[3] * U[4]' * γ1τ,1 * U[4]
-end
-
-struct MTD_PARAFAC <: FRAGMENTATION_TECH
-	# Fragments of PARAFAC decomposition
-	# same as CP4, but orbital rotations are given by c_n coefficients instead of θs 
-	#(i.e. see single_orbital_rotation class vs restricted_orbital_rotation)
-	# OP = ∑_στ ∑_{ijkl} c_i * γiσ,0 * c_j * γjσ,1 * c_k * γ1τ,0 * c_l * γ1τ,1
 end
 
 struct F_FRAG <: FRAGMENT

@@ -147,21 +147,6 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
 	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
 end
 
-function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_PARAFAC)
-	if nUs != 4
-		error("Trying to build MTD_PARAFAC fragment with $nUs unitaries defined, should be 4!")
-	end
-	c1 = U[1].cns
-	c2 = U[2].cns
-	c3 = U[3].cns
-	c4 = U[4].cns
-
-	tbt = zeros(Float64,N,N,N,N)
-	@einsum tbt[a,b,c,d] = c1[a] * c2[b] * c3[c] * c4[d]
-	
-	return F_OP(2,([0.0], [0.0], tbt), [false,false,true], spin_orb, N)
-end
-
 function obt_to_tbt(obt)
 	## transform one-body tensor into two-body tensor
     ## requires obt to be in spin-orbitals!
@@ -383,15 +368,6 @@ function MTD_CP4_x_to_F_FRAG(x, N, spin_orb=false)
 	Us = tuple([single_majorana_rotation(N, Uvecs[:,i]) for i in 1:4]...)
 	return F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, spin_orb, omega, true)
 end
-
-function MTD_PARAFAC_x_to_F_FRAG(x, N, spin_orb=false)
-	Uvecs = reshape(x[1:end-1], (N,4))
-	omega = x[end]
-
-	Us = tuple([single_orbital_rotation(N, Uvecs[:,i]) for i in 1:4]...)
-	return F_FRAG(4, Us, MTD_PARAFAC(), cartan_m1(), N, spin_orb, omega, true)
-end
-
 
 function THC_x_to_F_FRAGS(x, α, N)
 	num_ζ = Int(α*(α+1)/2) #ζij is non-zero only for i≥j since operators are hermitized

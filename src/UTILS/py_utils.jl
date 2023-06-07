@@ -14,9 +14,6 @@ ham = pyimport("ham_utils")
 fermionic = pyimport("ferm_utils")
 qub = pyimport("py_qubits")
 
-tfox = pyimport("TensorFox")
-#tly = pyimport("tensorly")# tensorly deprecated in favour of tensorfox
-
 of_simplify(OP) = of.reverse_jordan_wigner(of.jordan_wigner(OP))
 
 function qubit_transform(op, transformation=F2Q_map)
