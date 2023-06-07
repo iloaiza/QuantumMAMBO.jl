@@ -1,4 +1,5 @@
-function SAVELOAD_HAM(mol_name, FILENAME, DO_SAVE = SAVING)
+function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING)
+	#loads (or generates and saves) Hamiltonian in FILENAME corresponding to mol_name
 	if DO_SAVE && isfile(FILENAME*".h5")
 		fid = h5open(FILENAME*".h5", "cw")
 		if haskey(fid, "MOLECULAR_DATA")
@@ -51,7 +52,7 @@ function SAVELOAD_HAM(mol_name, FILENAME, DO_SAVE = SAVING)
 	return H, η
 end
 
-function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING; kwargs...)
+function SAVELOAD_XYZ_HAM(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING; kwargs...)
 	if DO_SAVE && isfile(FILENAME*".h5")
 		fid = h5open(FILENAME*".h5", "cw")
 		if haskey(fid, "MOLECULAR_DATA")
@@ -104,7 +105,7 @@ function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING; kwargs...)
 	return H, η
 end
 
-function LOCALIZED_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING; kwargs...)
+function LOCALIZED_XYZ_HAM(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING; kwargs...)
 	if DO_SAVE && isfile(FILENAME*".h5")
 		fid = h5open(FILENAME*".h5", "cw")
 		if haskey(fid, "MOLECULAR_DATA")
@@ -240,9 +241,6 @@ function L1_ROUTINE(H, name; prefix="", dE = true)
 	NUM_US[i,5] = N_OO_AC
 	# =#
 
-	if dE == false
-		Λ = Λ[2:end]
-	end
 	return Λ, Us
 end
 
@@ -318,6 +316,9 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		name = DATAFOLDER*"RUN.h5"
 	end
 
+	METHODS = []
+	Λs = []
+
 	if DO_ΔE
 		println("Obtaining 1-norm lower bound")
 		if SAVELOAD
@@ -332,6 +333,8 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 			close(fid)
 		end
 		@show λ_min
+		push!(METHODS, "ΔE/2")
+		push!(Λs, λ_min)
 	end
 
 	if SYM_RED
@@ -356,6 +359,42 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		end
 	end
 
+	println("\nPauli:")
+	@time λPauli = PAULI_L1(H, count=COUNT)
+	@show λPauli
+	push!(METHODS, "Pauli")
+	push!(Λs, λPauli)
+
+	if DO_OO
+		println("\nOrbital-rotation Pauli routine:")
+		@time H_rot = ORBITAL_OPTIMIZATION(H, verbose=verbose, SAVENAME=name)
+		λOO_Pauli = PAULI_L1(H_rot, count=COUNT)
+		@show λOO_Pauli
+		push!(METHODS, "OO-Pauli")
+		push!(Λs, λOO_Pauli)
+	end
+	
+	if DO_AC
+		println("\nAnti-commuting:")
+		@time λAC, N_AC = AC_group(H, ret_ops=false)
+		if COUNT
+			λAC = [λAC, N_AC]
+		end
+		@show λAC
+		push!(METHODS, "AC")
+		push!(Λs, λAC)
+	end
+
+	if DO_OO && DO_AC
+		λOO_AC, N_OO_AC = AC_group(H_rot, ret_ops=false)
+		if COUNT
+			λOO_AC = [λOO_AC, N_OO_AC]
+		end
+		@show λOO_AC, N_OO_AC
+		push!(METHODS, "OO-AC")
+		push!(Λs, λOO_AC)
+	end
+
 	println("\n\nCalculating 1-norms...")
 	println("1-body:")
 	@time λ1 = one_body_L1(H, count=COUNT)
@@ -371,11 +410,15 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@time CSA_FRAGS = CSA_greedy_decomposition(H, max_frags, verbose=verbose, SAVENAME=name)
 		println("Finished CSA decomposition for 2-body term using $(length(CSA_FRAGS)) fragments")
 		@time λ2_CSA = sum(L1.(CSA_FRAGS, count=COUNT))
-		@show λ1 + λ2_CSA
+		@show λCSA = λ1 + λ2_CSA
+		push!(METHODS, "GCSA-F")
+		push!(Λs, λCSA)
 		if DO_SQRT
 			println("Square-root routine...")
 			@time λ2_CSA_SQRT = sum(SQRT_L1.(CSA_FRAGS, count=COUNT))
-			@show λ1 + λ2_CSA_SQRT
+			@show λCSA_SQRT = λ1 + λ2_CSA_SQRT
+			push!(METHODS, "GCSA-SR")
+			push!(Λs, λCSA_SQRT)
 		end
 		if DO_TROTTER
 			#=
@@ -395,7 +438,9 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@time DF_FRAGS = DF_decomposition(H, verbose=verbose)
 		println("Finished DF decomposition for 2-body term using $(length(DF_FRAGS)) fragments")
 		@time λ2_DF = sum(L1.(DF_FRAGS, count=COUNT))
-		@show λ1 + λ2_DF
+		@show λDF = λ1 + λ2_DF
+		push!(METHODS, "DF")
+		push!(Λs, λDF)
 		if DO_TROTTER
 			println("Starting Trotter routine for DF...")
 			DF_OPS = to_OP.(DF_FRAGS) - ob_correction.(DF_FRAGS, return_op = true)
@@ -422,10 +467,13 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	if DO_MHC
 		println("\nMHC:")
 		@time λ2_MHC = split_schmidt(H.mbts[3], count=COUNT, tol=1e-6)
-		@show λ1 + λ2_MHC
+		@show λMTD = λ1 + λ2_MHC
+		push!(METHODS, "MTD-1^4")
+		push!(Λs, λMTD)
 	end
 
 	if DO_MTD_CP4
+		#=
 		println("\nMTD_CP4:")
 		@time CP4_FRAGS = CP4_decomposition(H, max_frags, verbose=verbose, SAVELOAD = true, SAVENAME = name)
 		λ2_CP4_TSR = 4*sum([abs(frag.coeff) for frag in CP4_FRAGS])
@@ -433,6 +481,7 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 			λ2_CP4_TSR = [λ2_CP4_TSR, length(CP4_FRAGS)]
 		end
 		@show λ1 + λ2_CP4_TSR
+		# =#
 
 		println("\nGREEEDY_MTD_CP4:")
 		@time CP4_GREEDY_FRAGS = MTD_CP4_greedy_decomposition(H, max_frags, verbose=verbose, SAVENAME = name, SAVELOAD=true)
@@ -450,20 +499,6 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@time λ2_THC = THC_full(H)
 		@show λ1 + λ2_THC
 		# =#
-	end
-
-	println("\nPauli:")
-	@time λPauli = PAULI_L1(H, count=COUNT)
-	@show λPauli
-	
-	if DO_AC
-		println("\nAnti-commuting:")
-		@time λAC, N_AC = AC_group(H, ret_ops=false)
-		if COUNT
-			@show λAC, N_AC
-		else
-			@show λAC
-		end
 	end
 
 	if DO_FC
@@ -493,30 +528,35 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 			display(αT4)
 		end
 	end
-
-	if DO_OO
-		println("\nOrbital-rotation routine:")
-		@time H_rot = ORBITAL_OPTIMIZATION(H, verbose=verbose, SAVENAME=name)
-		λOO_Pauli = PAULI_L1(H_rot, count=COUNT)
-		@show λOO_Pauli
-		if DO_AC
-			λOO_AC, N_OO_AC = AC_group(H_rot, ret_ops=false)
-			if COUNT
-				@show λOO_AC, N_OO_AC
-			else
-				@show λOO_AC
-			end
-		end
-	end
 	
 	if LATEX_PRINT
-		λDF = λ1 + λ2_DF
 		println("\n\n\nFINISHED ROUTINE FOR $name, PRINTING LATEX TABLE...")
 		println("#########################################################")
 		println("#########################################################")
 		println("Printout legend: Parenthesis corresponds to #of unitaries when available")
-		println("ΔE/2 & λPauli & λOO_Pauli & λAC & λOO_AC & λDF & λGCSA")
-		println("$(round(sigdigits=3,λ_min)) & $(round(sigdigits=3,λPauli[1]))($(Int(λPauli[2]))) & $(round(sigdigits=3,λAC))($N_AC) & $(round(sigdigits=3,λDF[1]))($(Int(λDF[2])))")
+		methods_string = ""
+		num_methods = length(METHODS)
+		for i in 1:num_methods
+			meth = METHODS[i]
+			methods_string = methods_string * meth
+			if i < num_methods
+				methods_string = methods_string * " & "
+			end
+		end
+		println(methods_string)
+
+		λ_string = ""
+		for i in 1:num_methods
+			λ_string = λ_string * "$(round(sigdigits=3, Λs[i][1]))"
+			if length(Λs[i]) > 1
+				λ_string = λ_string * "($(Int(Λs[i][2])))"
+			end
+
+			if i < num_methods
+				λ_string = λ_string * " & "
+			end
+		end
+		println(λ_string)
 		println("#########################################################")
 		println("#########################################################")
 	end
