@@ -200,54 +200,37 @@ function Q_OP(M :: M_OP, transformation = F2Q_map, tol = PAULI_TOL)
 end
 
 function AC_group(Q :: Q_OP; ret_ops = false, verbose = false)
-	is_grouped = zeros(Bool, Q.n_paulis)
-	group_arrs = Array{Int64,1}[]
+	group_arrs = Array{Int64, 1}[]
 	vals_arrs = Array{Complex,1}[]
 
 	vals_ord = [Q.paulis[i].coeff for i in 1:Q.n_paulis]
 	ind_perm = sortperm(abs.(vals_ord))[end:-1:1]
 	vals_ord = vals_ord[ind_perm]
 
-	if verbose
-		println("Running sorting-insertion algorithm")
-		@show sum(vals_ord)
+	for i in 1:Q.n_paulis
+		is_grouped = false
+		for (grp_num,grp) in enumerate(group_arrs)
+			antic_w_group = true
+			for j in grp
+				if pws_is_anticommuting(Q.paulis[ind_perm[i]],Q.paulis[ind_perm[j]]) == 0
+					antic_w_group = false
+					break
+				end
+			end
+			if antic_w_group == true
+				push!(grp, i)
+				push!(vals_arrs[grp_num], vals_ord[i])
+				is_grouped = true
+				break
+			end
+		end
+		if is_grouped == false
+			push!(group_arrs, [i])
+			push!(vals_arrs, Complex[vals_ord[i]])
+		end
 	end
 
-	for i in 1:Q.n_paulis
-    	if is_grouped[i] == false
-    		curr_group = [i]
-    		curr_vals = [vals_ord[i]]
-    		is_grouped[i] = true
-    		for j in i+1:Q.n_paulis
-    			if is_grouped[j] == false
-	    			if pws_is_anticommuting(Q.paulis[ind_perm[i]],Q.paulis[ind_perm[j]]) == 1
-	    				antic_w_group = true
-	    				for k in curr_group[2:end]
-	    					if pws_is_anticommuting(Q.paulis[ind_perm[k]],Q.paulis[ind_perm[j]]) == 0
-		    					antic_w_group = false
-		    					break
-		    				end
-	    				end
-
-	    				if antic_w_group == true
-		    				push!(curr_group,j)
-		    				push!(curr_vals,vals_ord[j])
-		    				is_grouped[j] = true
-		    			end
-	    			end
-	    		end
-	    	end
-    		push!(group_arrs,curr_group)
-    		push!(vals_arrs, curr_vals)
-    	end
-    end
-
-    if prod(is_grouped) == 0
-    	println("Error, not all terms are grouped after AC-SI algorithm!")
-    	@show is_grouped
-    end
-
-    num_groups = length(group_arrs)
+	num_groups = length(group_arrs)
     group_L1 = zeros(num_groups)
     for i in 1:num_groups
         for val in vals_arrs[i]
