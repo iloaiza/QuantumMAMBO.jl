@@ -51,7 +51,7 @@ function SAVELOAD_HAM(mol_name, FILENAME, DO_SAVE = SAVING)
 	return H, η
 end
 
-function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING)
+function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING; kwargs...)
 	if DO_SAVE && isfile(FILENAME*".h5")
 		fid = h5open(FILENAME*".h5", "cw")
 		if haskey(fid, "MOLECULAR_DATA")
@@ -64,7 +64,7 @@ function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING)
 			close(fid)
 			H = F_OP((h_const,obt,tbt))
 		else
-			H, η = H_from_xyz(xyz_string)
+			H, η = H_from_xyz(xyz_string; kwargs...)
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			if haskey(fid, "MOLECULAR_DATA")
 				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
@@ -81,7 +81,7 @@ function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING)
 			close(fid)
 		end
 	else 
-		H, η = H_from_xyz(xyz_string)
+		H, η = H_from_xyz(xyz_string; kwargs...)
 		if DO_SAVE
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			fid = h5open(FILENAME*".h5", "cw")
@@ -102,6 +102,148 @@ function SAVELOAD_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING)
 	end
 
 	return H, η
+end
+
+function LOCALIZED_XYZ_HAM(xyz_string, FILENAME, DO_SAVE = SAVING; kwargs...)
+	if DO_SAVE && isfile(FILENAME*".h5")
+		fid = h5open(FILENAME*".h5", "cw")
+		if haskey(fid, "MOLECULAR_DATA")
+			println("Loading molecular data from $FILENAME.h5")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			h_const = read(MOL_DATA,"h_const")
+			obt_hf = read(MOL_DATA,"obt_hf")
+			tbt_hf = read(MOL_DATA,"tbt_hf")
+			η = read(MOL_DATA,"eta")
+			obt_fb = read(MOL_DATA,"obt_fb")
+			tbt_fb = read(MOL_DATA,"tbt_fb")
+			close(fid)
+			Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+			Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+		else
+			h_const, obt_hf, tbt_hf, obt_fb, tbt_fb, η = ham.localized_ham_from_xyz(xyz_string; kwargs...)
+			h_const = pyconvert(Float64, h_const)
+			obt_hf = pyconvert(Array{Float64}, obt_hf)
+			tbt_hf = pyconvert(Array{Float64}, tbt_hf)
+			obt_fb = pyconvert(Array{Float64}, obt_fb)
+			tbt_fb = pyconvert(Array{Float64}, tbt_fb)
+			η = pyconvert(Int64, η)
+			Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+			Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
+				close(fid)
+				oldfile(FILENAME*".h5")
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  Hhf.mbts[1]
+			MOL_DATA["obt_hf"] =  Hhf.mbts[2]
+			MOL_DATA["tbt_hf"] =  Hhf.mbts[3]
+			MOL_DATA["eta"] =  η
+			MOL_DATA["obt_fb"] =  Hfb.mbts[2]
+			MOL_DATA["tbt_fb"] =  Hfb.mbts[3]
+			close(fid)
+		end
+	else 
+		h_const, obt_hf, tbt_hf, obt_fb, tbt_fb, η = ham.localized_ham_from_xyz(xyz_string; kwargs...)
+		h_const = pyconvert(Float64, h_const)
+		obt_hf = pyconvert(Array{Float64}, obt_hf)
+		tbt_hf = pyconvert(Array{Float64}, tbt_hf)
+		obt_fb = pyconvert(Array{Float64}, obt_fb)
+		tbt_fb = pyconvert(Array{Float64}, tbt_fb)
+		η = pyconvert(Int64, η)
+		Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+		Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+		if DO_SAVE
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			fid = h5open(FILENAME*".h5", "cw")
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists."
+				close(fid)
+				oldfile(FILENAME)
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  Hhf.mbts[1]
+			MOL_DATA["obt_hf"] =  Hhf.mbts[2]
+			MOL_DATA["tbt_hf"] =  Hhf.mbts[3]
+			MOL_DATA["eta"] =  η
+			MOL_DATA["obt_fb"] =  Hfb.mbts[2]
+			MOL_DATA["tbt_fb"] =  Hfb.mbts[3]
+			close(fid)
+		end
+	end
+
+	return Hhf, Hfb, η
+end
+
+function L1_ROUTINE(H, name; prefix="", dE = true)
+	#dE: whether full Hamiltonian is diagonalized for minimum 1-norm
+	#runs L1 routine for H, returns array of 1-norms Λ and unitary count Us as:
+	#Λ = [ΔE, Pauli, AC, DF, MHC]
+	#Us = [Pauli, AC, DF, MHC]
+
+	Λ = zeros(5)
+	Us = zeros(Int64, 4)
+	println("Obtaining 1-norm lower bound")
+	if dE
+		fid = h5open(name, "cw")
+		if haskey(fid, "dE" * prefix)
+			println("Found saved dE for file $name")
+			λ_min = read(fid,"dE" * prefix)
+		else
+			@time λ_min = SQRT_L1(H)
+			fid["dE" * prefix] = λ_min
+		end
+		close(fid)
+
+		Λ[1] = λ_min
+	end
+	
+	println("\n\nCalculating 1-norms...")
+	println("1-body:")
+	@time λ1 = one_body_L1(H, count=true)
+
+	println("\n\nDoing DF")
+	@time DF_FRAGS = DF_decomposition(H, verbose=true)
+	println("Finished DF decomposition for 2-body term using $(length(DF_FRAGS)) fragments")
+	@time λ2_DF = sum(L1.(DF_FRAGS, count=true))
+	λDF = λ1 + λ2_DF
+	Λ[4] = λDF[1]
+	Us[3] = λDF[2]
+
+	println("\nMHC:")
+	@time λ2_MHC = split_schmidt(H.mbts[3], count=true, tol=1e-6)
+	λMHC = λ1 + λ2_MHC
+	Λ[5] = λMHC[1]
+	Us[4] = λMHC[2]
+	
+	println("\nPauli:")
+	@time λPauli = PAULI_L1(H, count=true)
+	Λ[2] = λPauli[1]
+	Us[1] = λPauli[2]
+	
+	
+	println("\nAnti-commuting:")
+	@time λAC, N_AC = AC_group(H, ret_ops=false)
+	Λ[3] = λAC
+	Us[2] = N_AC
+	
+	#=
+	println("\nOrbital-rotation routine:")
+	@time H_rot = ORBITAL_OPTIMIZATION(H, SAVENAME=name)
+	λOO_AC, N_OO_AC = AC_group(H_rot, ret_ops=false)
+	Λs[i,6] = λOO_AC
+	NUM_US[i,5] = N_OO_AC
+	# =#
+
+	if dE == false
+		Λ = Λ[2:end]
+	end
+	return Λ, Us
 end
 
 function INTERACTION(H; SAVENAME=DATAFOLDER*"INTERACTION.h5",verbose=false)
@@ -154,9 +296,9 @@ function RUN(H; kwargs...)
 end
 
 function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO = true,
-			 DO_SQRT = false, max_frags = 100, verbose=true, COUNT=false, DO_TROTTER = false,
-			 DO_MHC = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
-			 DO_FC = true, SYM_RED = true)
+			 DO_SQRT = false, max_frags = 10000, verbose=true, COUNT=false, DO_TROTTER = false,
+			 DO_MHC = true, DO_MTD_CP4 = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
+			 DO_FC = true, SYM_RED = true, DO_THC = false)
 	# Obtain 1-norms for different LCU methods. COUNT=true also counts number of unitaries in decomposition
 	# CSA: Cartan sub-algebra decomposition
 	# DF: Double Factorization
@@ -165,7 +307,8 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	# OO: Orbital rotation technique
 	# SQRT: obtain square-root lower bound for non-optimal factorization methods (i.e. CSA)
 	# TROTTER: obtain α upper-bound for Trotter error
-	# MHC:L Majorana Hyper-Contraction
+	# MHC: MTD-1ˆ4 with SVD-based MPS
+	# MTD_CP4: MTD-1ˆ4
 	# η: number of electrons in the wavefunction, necessary for symmetry-projected Trotter bounds
 	# FC: fully-commuting grouing
 	# SYM_RED: calculate Trotter norms in symmetric subspace, necessary for Trotter bounds
@@ -282,6 +425,33 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@show λ1 + λ2_MHC
 	end
 
+	if DO_MTD_CP4
+		println("\nMTD_CP4:")
+		@time CP4_FRAGS = CP4_decomposition(H, max_frags, verbose=verbose, SAVELOAD = true, SAVENAME = name)
+		λ2_CP4_TSR = 4*sum([abs(frag.coeff) for frag in CP4_FRAGS])
+		if COUNT == true
+			λ2_CP4_TSR = [λ2_CP4_TSR, length(CP4_FRAGS)]
+		end
+		@show λ1 + λ2_CP4_TSR
+
+		println("\nGREEEDY_MTD_CP4:")
+		@time CP4_GREEDY_FRAGS = MTD_CP4_greedy_decomposition(H, max_frags, verbose=verbose, SAVENAME = name, SAVELOAD=true)
+		λ2_CP4_GREEDY = 4*sum([abs(frag.coeff) for frag in CP4_GREEDY_FRAGS])
+		if COUNT == true
+			λ2_CP4_GREEDY = [λ2_CP4_GREEDY, length(CP4_GREEDY_FRAGS)]
+		end
+		@show λ1 + λ2_CP4_GREEDY
+	end
+
+	if DO_THC
+		println("THC routine...")
+		@warn "THC not implemented!"
+		#=
+		@time λ2_THC = THC_full(H)
+		@show λ1 + λ2_THC
+		# =#
+	end
+
 	println("\nPauli:")
 	@time λPauli = PAULI_L1(H, count=COUNT)
 	@show λPauli
@@ -352,9 +522,9 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	end
 end
 
-function HUBBARD_RUN(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO = true,
-			 DO_SQRT = false, max_frags = 100, verbose=true, COUNT=false, DO_TROTTER = false,
-			 DO_MHC = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
+function HUBBARD_RUN(H; DO_CSA = false, DO_DF = true, DO_ΔE = false, DO_AC = true, DO_OO = true,
+			 DO_SQRT = false, max_frags = 1000, verbose=true, COUNT=false, DO_TROTTER = false,
+			 DO_MHC = true, DO_MTD_CP4 = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
 			 DO_FC = true, SYM_RED = true)
 	# Obtain 1-norms for different LCU methods. COUNT=true also counts number of unitaries in decomposition
 	# CSA: Cartan sub-algebra decomposition
@@ -472,6 +642,24 @@ function HUBBARD_RUN(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true
 		println("\nMHC:")
 		@time λ2_MHC = split_schmidt(H.mbts[3], count=COUNT, tol=1e-6)
 		@show λ1 + λ2_MHC
+	end
+
+	if DO_MTD_CP4
+		println("\nMTD_CP4:")
+		@time CP4_FRAGS = CP4_decomposition(H, max_frags)
+		λ2_CP4_TSR = sum([abs(frag.coeff) for frag in CP4_FRAGS])
+		if COUNT == true
+			λ2_CP4_TSR = [λ2_CP4_TSR, length(CP4_FRAGS)]
+		end
+		@show λ1 + λ2_CP4_TSR
+
+		println("\nGREEEDY_MTD_CP4:")
+		@time CP4_GREEDY_FRAGS = MTD_CP4_greedy_decomposition(H, max_frags, verbose=verbose, SAVENAME = name)
+		λ2_CP4_GREEDY = sum([abs(frag.coeff) for frag in CP4_FRAGS])
+		if COUNT == true
+			λ2_CP4_GREEDY = [λ2_CP4_GREEDY, length(CP4_GREEDY_FRAGS)]
+		end
+		@show λ1 + λ2_CP4_GREEDY
 	end
 
 	println("\nPauli:")

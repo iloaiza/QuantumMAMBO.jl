@@ -31,6 +31,8 @@ module QuantumMAMBO
 	include(UTILS_dir * "bliss.jl")
 	include(UTILS_dir * "trotter.jl")
 	include(UTILS_dir * "projectors.jl")
+	include(UTILS_dir * "schmidt.jl")
+	include(UTILS_dir * "tensors.jl")
 
 	if @isdefined myid
 		include(UTILS_dir * "parallel.jl")

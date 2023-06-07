@@ -27,6 +27,9 @@ ham = pyimport("ham_utils")
 fermionic = pyimport("ferm_utils")
 qub = pyimport("py_qubits")
 
+tfox = pyimport("TensorFox")
+#tly = pyimport("tensorly")# tensorly deprecated in favour of tensorfox
+
 of_simplify(OP) = of.reverse_jordan_wigner(of.jordan_wigner(OP))
 
 function qubit_transform(op, transformation=F2Q_map)
@@ -41,17 +44,17 @@ function qubit_transform(op, transformation=F2Q_map)
 	return op_qubit
 end
 
-function obtain_OF_hamiltonian(mol_name; basis="sto3g", ferm=true, geometry=1)
-	return ham.get_system(mol_name,ferm=ferm,basis=basis,geometry=geometry,n_elec=true)		
+function obtain_OF_hamiltonian(mol_name; kwargs...)
+	return ham.get_system(mol_name,n_elec=true; kwargs...)		
 end
 
-function xyz_OF_hamiltonian(xyz_string; basis="sto3g", spin=0)
-	return ham.system_from_xyz(xyz_string, basis=basis, n_elec = true, spin=0, ferm=true)
+function xyz_OF_hamiltonian(xyz_string; kwargs...)
+	return ham.system_from_xyz(xyz_string, n_elec = true, spin=0; kwargs...)
 end
 
-function obtain_H(mol_name; basis="sto3g", ferm=true, geometry=1)
+function obtain_H(mol_name; kwargs...)
 	#returns fermionic operator of H in orbitals and number of electrons
-	h_ferm, num_elecs = obtain_OF_hamiltonian(mol_name, basis=basis, ferm=ferm, geometry=geometry)
+	h_ferm, num_elecs = obtain_OF_hamiltonian(mol_name, kwargs...)
 	
 	Hconst, obt, tbt = fermionic.to_tensors(h_ferm)
 	obt = pyconvert(Array{Float64},obt)
@@ -62,9 +65,9 @@ function obtain_H(mol_name; basis="sto3g", ferm=true, geometry=1)
 	return F_OP(2,mbts,[true,true,true],false,size(obt)[1]), pyconvert(Int64, num_elecs)
 end
 
-function H_from_xyz(xyz_string; basis="sto3g", spin=0)
+function H_from_xyz(xyz_string; kwargs...)
 	#returns fermionic operator of H in orbitals and number of electrons
-	h_ferm, num_elecs = xyz_OF_hamiltonian(xyz_string, basis=basis, spin=spin)
+	h_ferm, num_elecs = xyz_OF_hamiltonian(xyz_string; kwargs...)
 	
 	Hconst, obt, tbt = fermionic.to_tensors(h_ferm)
 	obt = pyconvert(Array{Float64},obt)
@@ -131,6 +134,15 @@ function to_OF(F :: FRAGMENT; ob_corr = false)
 	else
 		return to_OF(to_OP(F) - ob_correction(F, return_op=true))
 	end
+end
+
+function from_OF(Hof)
+	#returns QuantumMAMBO F_OP from Openfermion FermionOperator
+	h0, obt, tbt = fermionic.to_tensors(Hof)
+	h0 = pyconvert(Float64, h0)
+	obt = pyconvert(Array{Float64}, obt)
+	tbt = pyconvert(Array{Float64}, tbt)
+	return F_OP(([h0], obt, tbt))
 end
 
 function py_sparse_import(py_sparse_mat; imag_tol=1e-14)

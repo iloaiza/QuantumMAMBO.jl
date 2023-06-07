@@ -5,6 +5,10 @@ from openfermion import FermionOperator, QubitOperator, MolecularData, hermitian
 from openfermionpyscf import run_pyscf
 from openfermion.transforms import get_fermion_operator
 import pyscf
+from pyscf import gto, scf
+from pyscf.lo.boys import Boys
+import numpy as np
+
 
 def get_spin(orb):
     '''
@@ -66,13 +70,13 @@ def get_system(mol_name, ferm = False, basis='sto3g', geometry=1, n_elec = False
             return get_fermion_operator(ham), mol.n_electrons
         else:
             return ham, mol.n_electrons
+        
 
-def system_from_xyz(xyz, ferm = False, basis='sto3g', n_elec = False, spin=0):
+def system_from_xyz(xyz, ferm = True, basis='sto3g', n_elec = False, spin=0):
     '''
     Obtain system from xyz string
     '''
     g = xyz_to_type(xyz)
-    print("g = {}".format(g))
     mol = MolecularData(g, basis, 1, 0)
     mol = run_pyscf(mol)
     ham = mol.get_molecular_hamiltonian()
@@ -86,6 +90,40 @@ def system_from_xyz(xyz, ferm = False, basis='sto3g', n_elec = False, spin=0):
             return get_fermion_operator(ham), mol.n_electrons
         else:
             return ham, mol.n_electrons
+
+
+def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0):
+    mol = gto.M()
+    mol.atom = xyz
+    mol.basis = basis
+    mol.spin = spin
+    mol.charge = charge
+    mol.build()
+    mf = scf.RHF(mol)
+    mf.run()
+    hf_mos = mf.mo_coeff
+    mo = Boys(mol, hf_mos)
+    mo.kernel()
+    fb_mos = mo.mo_coeff
+
+    h1e = mol.intor("int1e_kin") + mol.intor("int1e_nuc")
+    h2e = mol.intor("int2e", aosym = 's1')
+    nuclear_repulsion = mol.energy_nuc()
+    
+    N = np.shape(h1e)[0]
+
+    h_hf = hf_mos.T @ h1e @ hf_mos
+    g_hf = np.copy(h2e)
+    for i in range(4):
+       g_hf = np.tensordot(g_hf, hf_mos, axes=1).transpose(3, 0, 1, 2)
+    
+    h_fb = fb_mos.T @ h1e @ fb_mos
+    g_fb = np.copy(h2e)
+    for i in range(4):
+       g_fb = np.tensordot(g_fb, fb_mos, axes=1).transpose(3, 0, 1, 2)
+    
+    return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron
+
 
 def xyz_to_type(xyz):
     molData = []

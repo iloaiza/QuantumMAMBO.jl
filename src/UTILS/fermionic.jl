@@ -131,6 +131,37 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: THC)
 	return F_OP(2,([0.0], [0.0], tbt), [false,false,true], spin_orb, N)
 end
 
+function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
+	if nUs != 4
+		error("Trying to build MTD_CP4 fragment with $nUs unitaries defined, should be 4!")
+	end
+	U1 = one_body_unitary(U[1])
+	U2 = one_body_unitary(U[2])
+	U3 = one_body_unitary(U[3])
+	U4 = one_body_unitary(U[4])
+
+	tbt = zeros(Float64,N,N,N,N)
+	@einsum tbt[a,b,c,d] = U1[a,1] * U2[b,1] * U3[c,1] * U4[d,1]
+	@einsum tbt[a,b,c,d] += U4[a,1] * U3[b,1] * U2[c,1] * U1[d,1]
+
+	return F_OP(2,([0.0], [0.0], tbt), [false,false,true], spin_orb, N)
+end
+
+function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_PARAFAC)
+	if nUs != 4
+		error("Trying to build MTD_PARAFAC fragment with $nUs unitaries defined, should be 4!")
+	end
+	c1 = U[1].cns
+	c2 = U[2].cns
+	c3 = U[3].cns
+	c4 = U[4].cns
+
+	tbt = zeros(Float64,N,N,N,N)
+	@einsum tbt[a,b,c,d] = c1[a] * c2[b] * c3[c] * c4[d]
+	
+	return F_OP(2,([0.0], [0.0], tbt), [false,false,true], spin_orb, N)
+end
+
 function obt_to_tbt(obt)
 	## transform one-body tensor into two-body tensor
     ## requires obt to be in spin-orbitals!
@@ -345,6 +376,25 @@ function CSA_SD_x_to_F_FRAG(x, N, spin_orb, cartan_L = Int(N*(N+1)/2); do_Givens
 	end
 end
 
+function MTD_CP4_x_to_F_FRAG(x, N, spin_orb=false)
+	return MTD_PARAFAC_x_to_F_FRAG(x, N, spin_orb)
+	#=
+	Uvecs = reshape(x[1:end-1], (N,4))
+	omega = x[end]
+
+	Us = tuple([restricted_orbital_rotation(N, Uvecs[:,i]) for i in 1:4]...)
+	return F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, spin_orb, omega, true)
+	# =#
+end
+
+function MTD_PARAFAC_x_to_F_FRAG(x, N, spin_orb=false)
+	Uvecs = reshape(x[1:end-1], (N,4))
+	omega = x[end]
+
+	Us = tuple([single_orbital_rotation(N, Uvecs[:,i]) for i in 1:4]...)
+	return F_FRAG(4, Us, MTD_PARAFAC(), cartan_m1(), N, spin_orb, omega, true)
+end
+
 
 function THC_x_to_F_FRAGS(x, α, N)
 	num_ζ = Int(α*(α+1)/2) #ζij is non-zero only for i≥j since operators are hermitized
@@ -473,12 +523,16 @@ function F_OP_to_eri(F :: F_OP)
 	return obt, 2*tbt
 end
 
-function eri_to_F_OP(obt, tbt)
+function eri_to_F_OP(obt, tbt, hconst :: Array = [0])
 	#transform electronic repulsion integrals into fermionic operator
 	N = size(obt)[1]
 
-	mbts = ([0], obt - sum([0.5*tbt[:,k,k,:] for k in 1:N]), 0.5*tbt)
+	mbts = (hconst, obt - sum([0.5*tbt[:,k,k,:] for k in 1:N]), 0.5*tbt)
 	
 	
 	return F_OP(mbts)
+end
+
+function eri_to_F_OP(obt, tbt, hconst :: Number)
+	return eri_to_F_OP(obt, tbt, [hconst])
 end
