@@ -186,6 +186,14 @@ struct restricted_orbital_rotation <: REAL_F_UNITARY
 	θs :: Array{Float64, 1} #N-1 coefficients
 end
 
+struct single_majorana_rotation <: REAL_F_UNITARY
+	#corresponds to THC rotations as well, but represented as
+	#γ_u⃗ = ∑_n u_n γ_n, with ∑_n|u_n|ˆ2 = 1
+	# u1 = cos(2θ_1), u2 = sin(2θ_2)cos(2θ_1), ..., ui = cos(2θ_i)∏_{j<i}sin(2θ_j) (for i < N), ..., uN = ∏_{i} sin(2θ_i)
+	N :: Int64 #number of orbitals
+	θs :: Array{Float64, 1} #N-1 coeffs
+end
+
 struct single_orbital_rotation <: REAL_F_UNITARY
 	#corresponds to THC rotations as well, but represented as
 	#γ_u⃗ = ∑_n c_n γ_n, with ∑_n|c_n|ˆ2 = 1
@@ -245,7 +253,6 @@ end
 
 struct MTD_CP4 <: FRAGMENTATION_TECH
 	# Fragments of CP4 decomposition
-	# 
 	# OP = ∑_στ U[1]' * γ1σ,0 * U[1] * U[2]' * γ1σ,1 * U[2] * U[3]' * γ1τ,0 * U[3] * U[4]' * γ1τ,1 * U[4]
 end
 

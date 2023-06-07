@@ -135,16 +135,16 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
 	if nUs != 4
 		error("Trying to build MTD_CP4 fragment with $nUs unitaries defined, should be 4!")
 	end
-	U1 = one_body_unitary(U[1])
-	U2 = one_body_unitary(U[2])
-	U3 = one_body_unitary(U[3])
-	U4 = one_body_unitary(U[4])
+	U1 = one_body_rotation_coeffs(U[1])
+	U2 = one_body_rotation_coeffs(U[2])
+	U3 = one_body_rotation_coeffs(U[3])
+	U4 = one_body_rotation_coeffs(U[4])
 
 	tbt = zeros(Float64,N,N,N,N)
-	@einsum tbt[a,b,c,d] = U1[a,1] * U2[b,1] * U3[c,1] * U4[d,1]
-	@einsum tbt[a,b,c,d] += U4[a,1] * U3[b,1] * U2[c,1] * U1[d,1]
+	@einsum tbt[a,b,c,d] = U1[a] * U2[b] * U3[c] * U4[d]
+	@einsum tbt[a,b,c,d] += U4[a] * U3[b] * U2[c] * U1[d]
 
-	return F_OP(2,([0.0], [0.0], tbt), [false,false,true], spin_orb, N)
+	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
 end
 
 function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_PARAFAC)
@@ -377,14 +377,11 @@ function CSA_SD_x_to_F_FRAG(x, N, spin_orb, cartan_L = Int(N*(N+1)/2); do_Givens
 end
 
 function MTD_CP4_x_to_F_FRAG(x, N, spin_orb=false)
-	return MTD_PARAFAC_x_to_F_FRAG(x, N, spin_orb)
-	#=
-	Uvecs = reshape(x[1:end-1], (N,4))
+	Uvecs = reshape(x[1:end-1], (N-1,4))
 	omega = x[end]
 
-	Us = tuple([restricted_orbital_rotation(N, Uvecs[:,i]) for i in 1:4]...)
+	Us = tuple([single_majorana_rotation(N, Uvecs[:,i]) for i in 1:4]...)
 	return F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, spin_orb, omega, true)
-	# =#
 end
 
 function MTD_PARAFAC_x_to_F_FRAG(x, N, spin_orb=false)

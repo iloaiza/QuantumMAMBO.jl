@@ -52,7 +52,7 @@ def get_mol(mol_name, basis='sto3g', geometry=1):
     mol = run_pyscf(mol)
     return mol 
 
-def get_system(mol_name, ferm = False, basis='sto3g', geometry=1, n_elec = False):
+def get_system(mol_name, ferm = True, basis='sto3g', geometry=1, n_elec = False):
     '''
     Obtain system from specified parameters
     '''

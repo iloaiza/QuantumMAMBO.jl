@@ -373,8 +373,8 @@ function MTD_CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
 	end
 
 	if x0 == false
-		x0 = zeros(4*F.N + 1)
-		x0[1:4*F.N] .= 2π*rand(4*F.N)
+		x0 = zeros(4*F.N - 3)
+		x0[1:4*F.N - 4] .= 2π*rand(4*F.N - 4)
 	end
 
 	if print == false
@@ -388,7 +388,7 @@ function MTD_CP4_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbos
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1:2] .= false #only optimize 2-body tensor
 
-	tot_L = 4*H.N + 1
+	tot_L = 4*H.N - 3
 	if SAVELOAD
 		X = zeros(tot_L, α_max)
 	end

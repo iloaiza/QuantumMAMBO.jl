@@ -1,19 +1,6 @@
 #FUNCTIONS FOR INTERFACING WITH PYTHON
-PY_DIR = readchomp(`which python`)
-if @isdefined myid
-	if myid() == 1
-		println("Using python installation in $PY_DIR")
-	end
-else
-	println("Using python installation in $PY_DIR")
-end
-
-#use python installation from which Julia session is being ran. Uses micromamba environment by default
 ENV["JULIA_CONDAPKG_BACKEND"] = "MicroMamba"
-#= Uncomment following lines for using default python installation instead
-ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
-ENV["JULIA_PYTHONCALL_EXE"] = PY_DIR
-# =#
+
 using PythonCall
 np = pyimport("numpy")
 scipy = pyimport("scipy")
