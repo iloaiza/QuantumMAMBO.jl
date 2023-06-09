@@ -8,7 +8,7 @@ QuantumMAMBO provides structures for many-body objects in quantum computing. The
 
 `julia L1.jl lih`
 
-All options and tolerances can be seen in config.jl. See installation for more information.
+All options and tolerances can be seen in `src/UTILS/config.jl`.
 
 ## Installation
 Using Julia's package manager, add the "QuantumMAMBO" package. Can either be done by typing `]` on the Julia REPL, followed by `add QuantumMAMBO`, or by running the following lines:
@@ -17,9 +17,29 @@ import Pkg
 Pkg.add("QuantumMAMBO")
 ```
 
-By default, `QuantumMAMBO.jl` will use the package [`PythonCall`](https://github.com/cjdoris/PythonCall.jl) for calling python, installing all necessary python packages on a fresh conda environment using [`MicroMamba`](https://github.com/cjdoris/MicroMamba.jl). Uncommenting the lines in `src/UTILS/py_utils.jl` for `ENV["JULIA_CONDAPKG_BACKEND"]` and using a local installation of the `QuantumMAMBO.jl` package can be done to instead use the local python installation. Note that calling `QuantumMAMBO.jl` from python using the [`juliacall`](https://github.com/cjdoris/PythonCall.jl) package will crash if functions that use python are called. Such functions should be called directly from python, and are mostly used for transforming `QuantumMAMBO.jl` structures to/from [`Openfermion`](https://github.com/quantumlib/OpenFermion).
+By default, `QuantumMAMBO.jl` will use the package [`PythonCall`](https://github.com/cjdoris/PythonCall.jl) for calling python, installing all necessary python packages on a fresh conda environment using [`MicroMamba`](https://github.com/cjdoris/MicroMamba.jl).
+
+For development, this repository can be cloned and called from a julia session in the directory with the commands:
+```
+import Pkg
+Pkg.activate("./")
+using QuantumMAMBO
+```
+This allows for changes to be done in the package and tried out before uploading a new version of the package.
+
 
 ## Module overview
+
+### Main folder
+	- L1.jl: full workflow for obtaining LCU 1-norms for all decompositions/methods
+	- Project.toml: package metadata and dependencies
+	- CondaPkg.toml: python installation dependencies for micromamba environment
+
+
+### src foler
+	- config.jl: general parameters and settings for all functions
+	- QuantumMAMBO.jl: wrapper for the module, includes all necessary files
+	- UTILS folder: contains all functions
 
 ### UTILS folder
 	- bliss.jl: functions for BLISS routine (see Ref. 2)
@@ -46,20 +66,10 @@ By default, `QuantumMAMBO.jl` will use the package [`PythonCall`](https://github
 	- unitaries.jl: unitary transformations related to fermionic QuantumMAMBO operators (i.e. F_OP)
 	- wrappers.jl: runner functions which run workflows for obtaining all necessary quantities for e.g. tables in Refs. 1 and 2
 
-### Main folder
-	- L1.jl: full workflow for obtaining LCU 1-norms for all decompositions/methods
-	- Project.toml: package metadata and dependencies
-	- CondaPkg.toml: python installation dependencies for micromamba environment
-
-
-### src foler
-	- config.jl: general parameters and settings for all functions
-	- QuantumMAMBO.jl: wrapper for the module, includes all necessary files
-	- UTILS folder: contains all functions
 
 ## References
 This code was developped and used for all results in the publications:
 
-[1] - I. Loaiza, A. Marefat Khah, N. Wiebe, and A. F. Izmaylov, Reducing molecular electronic Hamiltonian simulation cost for Linear Combination of Unitaries approaches. arXiv:2208.08272 (2022).
+[1] - I. Loaiza, A. Marefat Khah, N. Wiebe, and A. F. Izmaylov, Reducing molecular electronic Hamiltonian simulation cost for Linear Combination of Unitaries approaches. Quantum Sci. Technol. 8 (3) 035019, 2023.
 
-[2] - I. Loaiza, A. F. Izmaylov, Reducing the molecular electronic Hamiltonian encoding costs on quantum computers by symmetry shifts. arXiv:2304.13772 (2023).
+[2] - I. Loaiza, A. F. Izmaylov, Reducing the molecular electronic Hamiltonian encoding costs on quantum computers by symmetry shifts. arXiv:2304.13772, 2023.
