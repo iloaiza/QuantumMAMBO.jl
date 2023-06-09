@@ -5,7 +5,7 @@ from openfermion import FermionOperator, QubitOperator, MolecularData, hermitian
 from openfermionpyscf import run_pyscf
 from openfermion.transforms import get_fermion_operator
 import pyscf
-from pyscf import gto, scf
+from pyscf import gto, scf, lo
 from pyscf.lo.boys import Boys
 import numpy as np
 
@@ -101,10 +101,9 @@ def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0):
     mol.build()
     mf = scf.RHF(mol)
     mf.run()
-    hf_mos = mf.mo_coeff
-    mo = Boys(mol, hf_mos)
-    mo.kernel()
-    fb_mos = mo.mo_coeff
+    hf_mos = mf.mo_coeff #defines canonical MOs (CMOs), corresponds to C matrix: CMOs = C * AOs
+    mo = lo.boys.Boys(mol, hf_mos)
+    fb_mos = mo.kernel() #C*U, C = AO-to-CMOs matrix, U = CMOs to localized unitary
 
     h1e = mol.intor("int1e_kin") + mol.intor("int1e_nuc")
     h2e = mol.intor("int2e", aosym = 's1')
