@@ -1,6 +1,6 @@
 #different ways of finding initial guess for greedy optimizations
 
-function SVD_to_CSA(λ, ω, U; debug=false)
+function SVD_to_CSA(λ, ω, U; debug=false,do_givens=CSA_GIVENS)
 	#transform λ value, ω vec and U rotation coming from SVD into CSA fragment parameters
 	#returns parameters for Givens rotations and Cartan coeffs giving largest SVD fragment
 	N = size(U)[1]
@@ -17,8 +17,11 @@ function SVD_to_CSA(λ, ω, U; debug=false)
 		end
 	end
 	coeffs .*= λ
-
-	u_rot = SOn_to_MAMBO_full(U, verbose=false)
+	if do_givens
+		u_rot = SOn_to_MAMBO_full(U, verbose=false)
+	else
+		u_rot=real_orbital_rotation(N,SOn_unitary_to_params(U))
+	end
 	C = cartan_2b(false, coeffs, N)
 	frag = F_FRAG(1, tuple(u_rot), CSA(), C, N, false, 1, false)
 
