@@ -7,8 +7,10 @@ const SAVING = true #save/load quantities as they are generated
 const DECOMPOSITION_PRINT = false #verbose during decompositions (useful for very large systems). false for no printout
 								 #integer number N for print every N steps
 const SVD_for_CSA = true #starting conditions for each CSA step are taken from SVD solution
-const SVD_for_CSA_SD = false #starting conditions for each CSA_SD step are taken from SVD solution, only considers two-body
-const CSA_GIVENS = true #whether unitary rotations for CSA are calculated as products of Givens or directly from e.g. SO(N) algebra exponential
+const SVD_for_CSA_SD = true #starting conditions for each CSA_SD step are taken from SVD solution, only considers two-body
+const GRAD_for_CSA = true #when true, gradients of the cost function for CSA decomposition are computed analytically.
+const GRAD_for_CSA_SD=true #when true, gradients of the cost function for CSA-SD decomposition are computed analytically
+const CSA_GIVENS = false #whether unitary rotations for CSA are calculated as products of Givens or directly from e.g. SO(N) algebra exponential
 const DF_GIVENS = false #same as CSA_GIVENS but for Double-Factorization
 const OO_GIVENS = true #whether orbital-rotation optimization generates unitaries as Givens of SO(N) directly
 const OO_reps = 10 #how many parallel repetitions are done for orbital optimization routine
@@ -23,3 +25,9 @@ const LCU_tol = 1e-6 #cut-off for counting unitaries with magnitude smaller than
 
 #Additional definitions
 const CONFIG_LOADED = true #flag that tracks config already being loaded, useful for redefining constants and being able to load build.jl
+
+if CSA_GIVENS
+	if GRAD_for_CSA || GRAD_for_CSA_SD
+		error("Givens rotation is incompatible with the current implementation of analytic gradients.")
+	end
+end

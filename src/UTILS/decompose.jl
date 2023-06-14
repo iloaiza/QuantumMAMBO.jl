@@ -79,7 +79,7 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=fa
 	return Farr
 end
 
-function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_PRINT)
+function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_PRINT,do_grad=GRAD_for_CSA)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 
@@ -97,11 +97,25 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_
 		Fx = CSA_x_to_F_FRAG(x, F.N, F.spin_orb, cartan_L)
 		return L2_partial_cost(F, to_OP(Fx))
 	end
+	
+	function grad!(storage::Vector{Float64},x::Vector{Float64})
+		Fx = to_OP(CSA_x_to_F_FRAG(x, F.N, F.spin_orb, cartan_L))
+		diff=Fx.mbts[3]-F.mbts[3]
+		storage.=gradient(size(diff,1),x,diff)
+	end
 
 	if print == false
-		return optimize(cost, x0, BFGS())
+		if do_grad
+			return optimize(cost, grad!, x0, BFGS())
+		else 
+			return optimize(cost, x0,BFGS())
+		end
 	else
-		return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+		if do_grad
+			return optimize(cost, grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+		else
+			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+		end
 	end
 end
 
@@ -190,7 +204,7 @@ function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose
 	return Farr
 end
 
-function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print=DECOMPOSITION_PRINT)
+function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print=DECOMPOSITION_PRINT,do_grad=GRAD_for_CSA_SD)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 
@@ -208,11 +222,26 @@ function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print=DECOMPOSIT
 		Fx = CSA_SD_x_to_F_FRAG(x, F.N, F.spin_orb, cartan_L)
 		return L2_partial_cost(F, to_OP(Fx))
 	end
+	
+	function SD_grad!(storage::Vector{Float64},x::Vector{Float64})
+		Fx = to_OP(CSA_SD_x_to_F_FRAG(x, F.N, F.spin_orb, cartan_L))
+		diff_ob=Fx.mbts[2]-F.mbts[2]
+		diff_tb=Fx.mbts[3]-F.mbts[3]
+		storage.=gradient_csa_sd(size(diff_ob,1),x,diff_ob,diff_tb)
+	end
 
 	if print == false
-		return optimize(cost, x0, BFGS())
+		if do_grad
+			return optimize(cost, SD_grad!, x0, BFGS())
+		else
+			return optimize(cost, x0, BFGS())
+		end
 	else
-		return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+		if do_grad
+			return optimize(cost, SD_grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+		else		
+			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+		end
 	end
 end
 

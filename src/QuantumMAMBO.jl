@@ -17,6 +17,7 @@ module QuantumMAMBO
 	include(UTILS_dir * "unitaries.jl")
 	include(UTILS_dir * "fermionic.jl")
 	include(UTILS_dir * "cost.jl")
+        include(UTILS_dir * "gradient.jl")
 	include(UTILS_dir * "decompose.jl")
 	include(UTILS_dir * "symmetries.jl")
 	include(UTILS_dir * "linprog.jl")
