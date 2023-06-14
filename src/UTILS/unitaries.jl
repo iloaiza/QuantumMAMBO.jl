@@ -221,21 +221,6 @@ function one_body_unitary(U :: restricted_orbital_rotation)
 	return Urot
 end
 
-function one_body_rotation_coeffs(U :: single_majorana_rotation)
-	#γ_u⃗ = ∑_n u_n γ_n, with ∑_n|u_n|ˆ2 = 1
-	# u1 = cos(2θ_1), u2 = sin(2θ_2)cos(2θ_1), ..., ui = cos(2θ_i)∏_{j<i}sin(2θ_j), ...
-	u_coeffs = zeros(U.N)
-
-	u_coeffs[1] = cos(2*U.θs[1])
-	for i in 2:U.N-2
-		u_coeffs[i] = cos(2*U.θs[i])
-		u_coeffs[i] *= prod(sin.(2*U.θs[1:i-1]))
-	end
-	u_coeffs[end] = prod(sin.(2*U.θs))
-
-	return u_coeffs
-end
-
 function cartan_tbt_complex_rotation(Umat :: Array, tbt, n = size(tbt)[1])
 	#rotates cartan tbt  with singles rotation Umat (i.e. one-body tensor)
 	rotated_tbt = zeros(Complex,n,n,n,n)
@@ -382,4 +367,42 @@ end
 
 function F_OP_rotation(U :: F_UNITARY, F :: F_OP)
 	return F_OP_rotation(one_body_unitary(U), F)
+end
+
+#The following two functions were added from unitaries.jl of TB_Frags.
+
+function get_anti_symmetric(n, N = Int(n*(n-1)/2))  
+	# Construct list of anti-symmetric matrices kappa_pq based on n*(n-1)/2 
+	R = zeros(N,n,n)
+	idx = 1
+	for p in 1:n
+		for q in p+1:n
+			R[idx,p,q] = 1
+			R[idx,q,p] = -1
+			idx += 1
+		end
+	end
+
+	return R
+end
+
+function construct_anti_symmetric(n, params, N=length(params))
+	#Construct the nxn anti-symmetric matrix based on the sum of basis with params as coefficients
+	real_anti = get_anti_symmetric(n, N)
+	anti_symm = zeros(n,n)
+	for idx in 1:N
+		anti_symm += params[idx] * real_anti[idx,:,:]
+	end
+
+	return anti_symm
+end
+
+function get_generator(n,idx)  #Generators for real orbital rotations
+	i=Int64(ceil(((2n-1)-sqrt((1-2n)^2-8*idx))/2))
+	i_prev=i-1
+	j=i+Int64(idx-i_prev*n+i_prev*(i_prev+1)/2)
+	generator=zeros(Int64,n,n)
+	generator[i,j]=1
+	generator[j,i]=-1
+	return generator
 end
