@@ -466,9 +466,9 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 
 	if DO_MHC
 		println("\nMHC:")
-		@time λ2_MHC = split_schmidt(H.mbts[3], count=COUNT, tol=1e-6)
+		@time λ2_MHC = iterative_schmidt(H.mbts[3], count=COUNT, tol=1e-6)
 		@show λMTD = λ1 + λ2_MHC
-		push!(METHODS, "MTD-1^4")
+		push!(METHODS, "MTD-SVD")
 		push!(Λs, λMTD)
 	end
 
@@ -490,6 +490,8 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 			λ2_CP4_GREEDY = [λ2_CP4_GREEDY, length(CP4_GREEDY_FRAGS)]
 		end
 		@show λ1 + λ2_CP4_GREEDY
+		push!(METHODS, "MTD-1^4")
+		push!(Λs, λ1 + λ2_CP4_GREEDY)
 	end
 
 	if DO_THC

@@ -221,6 +221,20 @@ function one_body_unitary(U :: restricted_orbital_rotation)
 	return Urot
 end
 
+function one_body_rotation_coeffs(U :: single_majorana_rotation)
+	#γ_u⃗ = ∑_n u_n γ_n, with ∑_n|u_n|ˆ2 = 1
+	# u1 = cos(2θ_1), u2 = sin(2θ_2)cos(2θ_1), ..., ui = cos(2θ_i)∏_{j<i}sin(2θ_j), ...
+	u_coeffs = zeros(U.N)
+
+	u_coeffs[1] = cos(2*U.θs[1])
+	for i in 2:U.N-1
+		u_coeffs[i] = cos(2*U.θs[i]) * prod(sin.(2*U.θs[1:i-1]))
+	end
+	u_coeffs[end] = prod(sin.(2*U.θs))
+
+	return u_coeffs
+end
+
 function cartan_tbt_complex_rotation(Umat :: Array, tbt, n = size(tbt)[1])
 	#rotates cartan tbt  with singles rotation Umat (i.e. one-body tensor)
 	rotated_tbt = zeros(Complex,n,n,n,n)
@@ -368,8 +382,6 @@ end
 function F_OP_rotation(U :: F_UNITARY, F :: F_OP)
 	return F_OP_rotation(one_body_unitary(U), F)
 end
-
-#The following two functions were added from unitaries.jl of TB_Frags.
 
 function get_anti_symmetric(n, N = Int(n*(n-1)/2))  
 	# Construct list of anti-symmetric matrices kappa_pq based on n*(n-1)/2 
