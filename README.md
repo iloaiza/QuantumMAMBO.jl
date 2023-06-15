@@ -48,6 +48,7 @@ This allows for changes to be done in the package and tried out before creating 
 	- decompose.jl: CSA, DF, and related decompositions of fermionic operators
 	- ferm_utils.py: utilities for fermionic operators in python, interfaces with openfermion
 	- fermionic.jl: utilities for QuantumMAMBO fermionic operators class (F_OP, defined in structures.jl)
+	- gradient.jl: gradients for CSA and CSA_SD optimizations
 	- guesses.jl: initial guesses for decomposition routines
 	- ham_utils.py: python utilities for the electronic structure Hamiltonian, interfaces with openfermion
 	- lcu.jl: calculation of lcu 1-norms for different decompositions
@@ -76,6 +77,6 @@ This code was developped and used for all results in the publications:
 [2] - I. Loaiza, A. F. Izmaylov, Reducing the molecular electronic Hamiltonian encoding costs on quantum computers by symmetry shifts. arXiv:2304.13772, 2023.
 
 ## Code collaborators
-	- Ignacio Loaiza
-	- Aritra Brahmachari
+	- Ignacio Loaiza (@iloaiza)
+	- Aritra Brahmachari (@AritraBrahmachari)
 
