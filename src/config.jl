@@ -26,8 +26,3 @@ const LCU_tol = 1e-6 #cut-off for counting unitaries with magnitude smaller than
 #Additional definitions
 const CONFIG_LOADED = true #flag that tracks config already being loaded, useful for redefining constants and being able to load build.jl
 
-if CSA_GIVENS
-	if GRAD_for_CSA || GRAD_for_CSA_SD
-		error("Givens rotation is incompatible with the current implementation of analytic gradients.")
-	end
-end
