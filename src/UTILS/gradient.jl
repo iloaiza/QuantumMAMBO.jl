@@ -73,16 +73,44 @@ function del_w_u(n,x,do_givens=CSA_GIVENS)
     return wu
 end #get w_o
 
-function del_u_theta(n,u_params,i,do_givens=CSA_GIVENS)  
+function del_u_theta(n,u_params,idx,do_givens=CSA_GIVENS)  
 	# returns the gradient w.r.t i'th angles
 	
 	if do_givens
-		kappa=get_anti_symmetric(n)[i,:,:]
-		U=one_body_unitary(givens_real_orbital_rotation(n,u_params))
-		return U*kappa
+		i,j=get_rot_indices(n,idx)
+		d_ug=collect(Diagonal(zeros(n)))
+		d_ug[i,i] = -sin(u_params[idx])
+		d_ug[j,j] = d_ug[i,i]
+		d_ug[i,j] = cos(u_params[idx])
+		d_ug[j,i] = -d_ug[i,j]
 		
+		
+		
+		dUrot = collect(Diagonal(ones(n)))
+		for k=1:idx-1
+			i,j=get_rot_indices(n,k)
+			Ug = collect(Diagonal(ones(n)))
+			Ug[i,i] = cos(u_params[k])
+			Ug[j,j] = Ug[i,i]
+			Ug[i,j] = sin(u_params[k])
+			Ug[j,i] = -Ug[i,j]
+			dUrot = Ug * dUrot
+		end
+		
+		dUrot=d_ug*dUrot
+		
+		for k=idx+1:real_orbital_rotation_num_params(n)
+			i,j=get_rot_indices(n,k)
+			Ug = collect(Diagonal(ones(n)))
+			Ug[i,i] = cos(u_params[k])
+			Ug[j,j] = Ug[i,i]
+			Ug[i,j] = sin(u_params[k])
+			Ug[j,i] = -Ug[i,j]
+			dUrot = Ug * dUrot
+		end
+		return dUrot	
 	else
-		kappa = get_generator(n,i)
+		kappa = get_generator(n,idx)
 	    	K = construct_anti_symmetric(n, u_params)
 	    	D, O = eigen(K)
 		I = O' * kappa * O
