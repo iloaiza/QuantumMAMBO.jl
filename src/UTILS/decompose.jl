@@ -112,9 +112,9 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_
 		end
 	else
 		if do_grad
-			return optimize(cost, grad!, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		else
-			return optimize(cost, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		end
 	end
 end
@@ -238,9 +238,9 @@ function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print = DECOMPOS
 		end
 	else
 		if do_grad
-			return optimize(cost, SD_grad!, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, SD_grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		else		
-			return optimize(cost, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		end
 	end
 end
