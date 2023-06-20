@@ -6,7 +6,8 @@ global SAVING_LOADED = true
 
 using HDF5
 if !(@isdefined(DATAFOLDER))
-	DATAFOLDER = "./SAVED/"
+	DATAFOLDER = @__DIR__
+	DATAFOLDER = DATAFOLDER * "/../../SAVED/"
 end
 if @isdefined myid
 	if myid() == 1

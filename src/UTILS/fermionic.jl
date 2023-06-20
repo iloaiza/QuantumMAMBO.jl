@@ -142,8 +142,7 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
 
 	tbt = zeros(Float64,N,N,N,N)
 	@einsum tbt[a,b,c,d] = U1[a] * U2[b] * U3[c] * U4[d]
-	@einsum tbt[a,b,c,d] += U4[a] * U3[b] * U2[c] * U1[d]
-
+	
 	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
 end
 

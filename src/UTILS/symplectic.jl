@@ -16,7 +16,6 @@ function pauli_bit(i :: Int64)
 end
 
 function pauli_matrix(bit1 :: Bool, bit2 :: Bool)
-
     if bit1
         if bit2
             return sparse([0 -1im; 1im 0])
@@ -176,6 +175,19 @@ function pw_to_bin_vec(pw)
     for (i,bit) in enumerate(pw.bits)
         b_vec[i] = bit.bin[1]
         b_vec[i+n_qubits] = bit.bin[2]
+    end
+
+    return b_vec
+end
+
+function pw_to_bin_bra(pw)
+    #bra already has inverted indices so bra*vec can be used to check anticommutativity
+    n_qubits = pw.size
+    b_vec = zeros(Bool, 2*n_qubits)
+
+    for (i,bit) in enumerate(pw.bits)
+        b_vec[i] = bit.bin[2]
+        b_vec[i+n_qubits] = bit.bin[1]
     end
 
     return b_vec

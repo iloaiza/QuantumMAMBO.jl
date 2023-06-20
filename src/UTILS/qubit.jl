@@ -258,6 +258,63 @@ function AC_group(F :: F_OP; ret_ops = false, verbose=false)
 	return AC_group(Q_OP(F), ret_ops=ret_ops, verbose=verbose)
 end
 
+function vectorized_AC_group(Q :: Q_OP; ret_ops = false, verbose = false)
+	group_arrs = Array{Int64, 1}[]
+	vals_arrs = Array{Complex,1}[]
+	bin_mats = Array{Bool,2}[] #holds bra vectors of groups for fast anticommutativity check
+
+	vals_ord = [Q.paulis[i].coeff for i in 1:Q.n_paulis]
+	ind_perm = sortperm(abs.(vals_ord))[end:-1:1]
+	vals_ord = vals_ord[ind_perm]
+
+	for i in 1:Q.n_paulis
+		my_bin = pw_to_bin_vec(Q.paulis[ind_perm[i]])
+		is_grouped = false
+		for (grp_num,grp) in enumerate(group_arrs)
+			grp_prods = Bool.((bin_mats[grp_num] * my_bin) .% 2)
+			if prod(grp_prods) == true
+				push!(grp, i)
+				push!(vals_arrs[grp_num], vals_ord[i])
+				bin_mats[grp_num] = vcat(bin_mats[grp_num], pw_to_bin_bra(Q.paulis[ind_perm[i]]))
+				is_grouped = true
+				break
+			end
+		end
+		if is_grouped == false
+			push!(group_arrs, [i])
+			push!(vals_arrs, Complex[vals_ord[i]])
+			push!(bin_mats, pw_to_bin_bra(Q.paulis[ind_perm[i]]))
+		end
+	end
+
+	num_groups = length(group_arrs)
+    group_L1 = zeros(num_groups)
+    for i in 1:num_groups
+        for val in vals_arrs[i]
+            group_L1[i] += abs2(val)
+        end
+    end
+
+    L1_norm = sum(sqrt.(group_L1))
+
+    if ret_ops == false
+    	return L1_norm, num_groups
+    else
+    	OPS = Q_OP[]
+    	for i in 1:num_groups
+    		pws_i = [Q.paulis[ind_perm[j]] for j in group_arrs[i]]
+    		q_op = Q_OP(Q.N, length(pws_i), 0, pws_i)
+    		push!(OPS, q_op)
+    	end
+
+    	return L1_norm, OPS
+    end
+end
+
+function vectorized_AC_group(F :: F_OP; ret_ops = false, verbose=false)
+	return AC_group(Q_OP(F), ret_ops=ret_ops, verbose=verbose)
+end
+
 function FC_group(Q :: Q_OP; ret_ops = false, verbose=false)
 	is_grouped = zeros(Bool, Q.n_paulis)
 	group_arrs = Array{Int64,1}[]

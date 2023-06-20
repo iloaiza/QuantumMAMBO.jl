@@ -8,7 +8,7 @@ QuantumMAMBO provides structures for many-body objects in quantum computing. The
 
 `julia L1.jl lih`
 
-All options and tolerances can be seen in `src/UTILS/config.jl`.
+All options and tolerances can be seen in `src/config.jl`.
 
 ## Installation
 Using Julia's package manager, add the "QuantumMAMBO" package. Can either be done by typing `]` on the Julia REPL, followed by `add QuantumMAMBO`, or by running the following lines:
@@ -17,15 +17,16 @@ import Pkg
 Pkg.add("QuantumMAMBO")
 ```
 
-By default, `QuantumMAMBO.jl` will use the package [`PythonCall`](https://github.com/cjdoris/PythonCall.jl) for calling python, installing all necessary python packages on a fresh conda environment using [`MicroMamba`](https://github.com/cjdoris/MicroMamba.jl).
+By default, `QuantumMAMBO.jl` will use the package [`PythonCall`](https://github.com/cjdoris/PythonCall.jl) for calling python, installing all necessary python packages on a fresh conda environment using [`MicroMamba`](https://github.com/cjdoris/MicroMamba.jl). Change the `PY_ENV` variable in `src/config.jl` to `"Null"` for using local python enviornment instead.
 
 For development, this repository can be cloned and called from a julia session in the directory with the commands:
 ```
 import Pkg
 Pkg.activate("./")
+Pkg.instantiate()
 using QuantumMAMBO
 ```
-This allows for changes to be done in the package and tried out before uploading a new version of the package.
+This allows for changes to be done in the package and tried out before creating a pull request for uploading a new version of the package.
 
 
 ## Module overview
@@ -47,6 +48,7 @@ This allows for changes to be done in the package and tried out before uploading
 	- decompose.jl: CSA, DF, and related decompositions of fermionic operators
 	- ferm_utils.py: utilities for fermionic operators in python, interfaces with openfermion
 	- fermionic.jl: utilities for QuantumMAMBO fermionic operators class (F_OP, defined in structures.jl)
+	- gradient.jl: gradients for CSA and CSA_SD optimizations
 	- guesses.jl: initial guesses for decomposition routines
 	- ham_utils.py: python utilities for the electronic structure Hamiltonian, interfaces with openfermion
 	- lcu.jl: calculation of lcu 1-norms for different decompositions
@@ -73,3 +75,8 @@ This code was developped and used for all results in the publications:
 [1] - I. Loaiza, A. Marefat Khah, N. Wiebe, and A. F. Izmaylov, Reducing molecular electronic Hamiltonian simulation cost for Linear Combination of Unitaries approaches. Quantum Sci. Technol. 8 (3) 035019, 2023.
 
 [2] - I. Loaiza, A. F. Izmaylov, Reducing the molecular electronic Hamiltonian encoding costs on quantum computers by symmetry shifts. arXiv:2304.13772, 2023.
+
+## Code collaborators
+	- Ignacio Loaiza (@iloaiza)
+	- Aritra Brahmachari (@AritraBrahmachari)
+

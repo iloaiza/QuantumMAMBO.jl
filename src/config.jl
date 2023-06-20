@@ -6,10 +6,10 @@ const SAVING = true #save/load quantities as they are generated
 #Decomposition options
 const DECOMPOSITION_PRINT = false #verbose during decompositions (useful for very large systems). false for no printout
 								 #integer number N for print every N steps
-const SVD_for_CSA = true #starting conditions for each CSA step are taken from SVD solution
+const SVD_for_CSA = false #starting conditions for each CSA step are taken from SVD solution
 const SVD_for_CSA_SD = true #starting conditions for each CSA_SD step are taken from SVD solution, only considers two-body
 const GRAD_for_CSA = true #when true, gradients of the cost function for CSA decomposition are computed analytically.
-const GRAD_for_CSA_SD=true #when true, gradients of the cost function for CSA-SD decomposition are computed analytically
+const GRAD_for_CSA_SD = true #when true, gradients of the cost function for CSA-SD decomposition are computed analytically
 const CSA_GIVENS = false #whether unitary rotations for CSA are calculated as products of Givens or directly from e.g. SO(N) algebra exponential
 const DF_GIVENS = false #same as CSA_GIVENS but for Double-Factorization
 const OO_GIVENS = true #whether orbital-rotation optimization generates unitaries as Givens of SO(N) directly
@@ -26,3 +26,5 @@ const LCU_tol = 1e-6 #cut-off for counting unitaries with magnitude smaller than
 #Additional definitions
 const CONFIG_LOADED = true #flag that tracks config already being loaded, useful for redefining constants and being able to load build.jl
 
+#Python configuration
+const PY_BACKEND = "MicroMamba" #by default "MicroMamba" will create conda environment with PythonCall package. Set to "Null" for instead using local python environment

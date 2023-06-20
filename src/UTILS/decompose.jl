@@ -1,4 +1,4 @@
-function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA.h5")
+function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA.h5", kwargs...)
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1:2] .= false #only optimize 2-body tensor
 
@@ -46,10 +46,10 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=fa
 		α_curr += 1
 		#x = [λ..., θ...] for cartan(λ) and U(θ)
 		if verbose
-			@time sol = CSA_greedy_step(F_rem)
+			@time sol = CSA_greedy_step(F_rem; kwargs...)
 			println("Current L2 cost after $α_curr fragments is $(sol.minimum)")
 		else
-			sol = CSA_greedy_step(F_rem)
+			sol = CSA_greedy_step(F_rem; kwargs...)
 		end
 		frag = CSA_x_to_F_FRAG(sol.minimizer, H.N, H.spin_orb, cartan_L)
 		push!(Farr, frag)
@@ -79,7 +79,7 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=fa
 	return Farr
 end
 
-function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_PRINT,do_grad=GRAD_for_CSA)
+function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_PRINT, do_grad=GRAD_for_CSA)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 
@@ -119,7 +119,7 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_
 	end
 end
 
-function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA_SD.h5")
+function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA_SD.h5", kwargs...)
 	#same as CSA decomposition, but includes optimization of one-body term
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1] = false #only optimize 1-body and 2-body tensors
@@ -172,10 +172,10 @@ function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose
 		α_curr += 1
 		#x = [λ..., θ...] for cartan(λ) and U(θ)
 		if verbose
-			@time sol = CSA_SD_greedy_step(F_rem)
+			@time sol = CSA_SD_greedy_step(F_rem; kwargs...)
 			println("Current L2 cost after $α_curr fragments is $(sol.minimum)")
 		else
-			sol = CSA_SD_greedy_step(F_rem)
+			sol = CSA_SD_greedy_step(F_rem; kwargs...)
 		end
 		frag = CSA_SD_x_to_F_FRAG(sol.minimizer, H.N, H.spin_orb, cartan_L)
 		push!(Farr, frag)
@@ -204,7 +204,7 @@ function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose
 	return Farr
 end
 
-function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print=DECOMPOSITION_PRINT,do_grad=GRAD_for_CSA_SD)
+function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print = DECOMPOSITION_PRINT, do_grad = GRAD_for_CSA_SD)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 

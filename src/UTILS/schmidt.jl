@@ -30,6 +30,80 @@ function mbt_schmidt(mbt :: Array{Float64}; debug=false)
 	return U,S,V
 end
 
+function r_acos(x, tiny = 1e-10)
+	#returns acos(x), if abs(x) is close to ±1 by tiny rounds x to ±1
+	if abs(x) > 1 + tiny
+		error("acos not defined for x=$x")
+	elseif abs(x) > 1
+		if x > 0
+			return acos(1)
+		else
+			return acos(-1)
+		end
+	else
+		return acos(x)
+	end
+end
+
+function r_asin(x, tiny = 1e-12)
+	#returns asin(x), if abs(x) is close to ±1 by tiny rounds x to ±1
+	if abs(x) > 1 + tiny
+		error("asin not defined for x=$x")
+	elseif abs(x) > 1
+		if x > 0
+			return asin(1)
+		else
+			return asin(-1)
+		end
+	else
+		return asin(x)
+	end
+end
+
+function majorana_coefs_to_unitary(cns, N = length(cns); tiny = 1e-10, debug=false)
+	#obtains angles for transforming γ_c⃗ = ∑_n c_n γ_n into MTD_CP4 angles, where ∑_n |cns|ˆ2 = 1
+	if abs(1-sum(abs2.(cns))) > tiny
+		error("Trying to convert Majorana coeffs into angles, not normalized!")
+	end
+
+	θs = 0.5 * π * ones(N-1)
+	θs[1] = r_acos(cns[1])/2
+
+	for i in 2:N-1
+		cum_coef = sum(abs2.(cns[1:i-1]))
+		# =
+		if abs(1-cum_coef) < tiny
+			break
+		end
+		# =#
+		if abs(cns[i]) > tiny
+			ccur = cns[i]/(prod(sin.(2*θs[1:i-1])))
+		else
+			ccur = 0
+		end
+		θs[i] = r_acos(ccur)/2
+	end
+
+	if abs(cns[end]) > tiny
+		θs[end] *= sign(cns[end])
+	end
+	
+	U = single_majorana_rotation(N, θs)
+
+	if debug == true
+		u_dbg = one_body_rotation_coeffs(U)
+		dif = sum(abs2.(u_dbg - cns))
+		if dif > tiny
+			@warn "Majorana coefficients transformed to single_majorana_rotation unitary not converged!"
+			@show cns
+			@show u_dbg
+		end
+	end
+
+	return U
+end
+
+
 function iterative_schmidt(tbt :: Array{Float64, 4}; tol=1e-6, debug=false, return_ops=false, count=true)
 	#return iterative schmidt decomposition of tbt
 	U1, S1, V1 = mbt_schmidt(tbt)
@@ -77,6 +151,36 @@ function iterative_schmidt(tbt :: Array{Float64, 4}; tol=1e-6, debug=false, retu
 		end
 
 		@show sum(abs.(tbt_reb - tbt))
+	end
+
+	if return_ops
+		FRAGS = F_FRAG[]
+		for k1 in 1:N
+			s1 = S1[k1]
+			for k2 in 1:N
+				s2 = S2s[k2,k1]
+				for k3 in 1:N
+					s3 = S3s[k3,k2,k1]
+					u1 = majorana_coefs_to_unitary(U1[:,k1])
+					u2 = majorana_coefs_to_unitary(U2s[:,k2,k1])
+					u3 = majorana_coefs_to_unitary(U3s[:,k3,k2,k1])
+					u4 = majorana_coefs_to_unitary(V3s[:,k3,k2,k1])
+
+					Us = (u1,u2,u3,u4)
+
+					frag = F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, false, s1*s2*s3, true)
+					push!(FRAGS, frag)
+				end
+			end
+		end
+
+		OP_TOT = sum(to_OP.(FRAGS))
+
+		if debug
+			@show sum(abs2.(OP_TOT.mbts[3] - tbt))
+		end
+
+		return FRAGS
 	end
 
 	Stot = zeros(N, N, N)

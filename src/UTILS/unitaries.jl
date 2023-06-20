@@ -227,9 +227,8 @@ function one_body_rotation_coeffs(U :: single_majorana_rotation)
 	u_coeffs = zeros(U.N)
 
 	u_coeffs[1] = cos(2*U.θs[1])
-	for i in 2:U.N-2
-		u_coeffs[i] = cos(2*U.θs[i])
-		u_coeffs[i] *= prod(sin.(2*U.θs[1:i-1]))
+	for i in 2:U.N-1
+		u_coeffs[i] = cos(2*U.θs[i]) * prod(sin.(2*U.θs[1:i-1]))
 	end
 	u_coeffs[end] = prod(sin.(2*U.θs))
 
