@@ -398,6 +398,7 @@ function get_anti_symmetric(n, N = Int(n*(n-1)/2))
 	return R
 end
 
+
 function construct_anti_symmetric(n, params, N=length(params))
 	#Construct the nxn anti-symmetric matrix based on the sum of basis with params as coefficients
 	real_anti = get_anti_symmetric(n, N)
@@ -409,10 +410,18 @@ function construct_anti_symmetric(n, params, N=length(params))
 	return anti_symm
 end
 
-function get_generator(n,idx)  #Generators for real orbital rotations
+
+function get_rot_indices(n,idx)
+	#@show n,idx
 	i=Int64(ceil(((2n-1)-sqrt((1-2n)^2-8*idx))/2))
 	i_prev=i-1
 	j=i+Int64(idx-i_prev*n+i_prev*(i_prev+1)/2)
+	return i,j
+end
+	
+
+function get_generator(n,idx)  #Generators for real orbital rotations
+	i,j=get_rot_indices(n,idx)
 	generator=zeros(Int64,n,n)
 	generator[i,j]=1
 	generator[j,i]=-1

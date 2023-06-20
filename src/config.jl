@@ -26,11 +26,5 @@ const LCU_tol = 1e-6 #cut-off for counting unitaries with magnitude smaller than
 #Additional definitions
 const CONFIG_LOADED = true #flag that tracks config already being loaded, useful for redefining constants and being able to load build.jl
 
-if CSA_GIVENS
-	if GRAD_for_CSA || GRAD_for_CSA_SD
-		@warn "Givens rotation is incompatible with the current implementation of analytic gradients, CSA and CSA_SD decompositions will not work"
-	end
-end
-
 #Python configuration
 const PY_BACKEND = "MicroMamba" #by default "MicroMamba" will create conda environment with PythonCall package. Set to "Null" for instead using local python environment
