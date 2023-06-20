@@ -1,6 +1,6 @@
 #CONFIGURATION FILE
 #Sets defaults for code
-const F2Q_map = "jw"
+const F2Q_map = "jw" #jordan-wigner default fermion-to-qubit mapping
 const SAVING = true #save/load quantities as they are generated
 
 #Decomposition options
