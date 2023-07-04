@@ -15,6 +15,10 @@ function L1(F :: F_FRAG; debug = false, count = false)
 	end
 end
 
+function L1(F_arr :: Array{F_FRAG}; debug=false, count=true)
+	return sum(L1.(F_arr, debug=debug, count=count))
+end
+
 function SQRT_L1(F :: F_OP; count = false)
 	#return minimal 1-norm for fermionic operator, does not scale well!
 	of_OP = qubit_transform(to_OF(F))
