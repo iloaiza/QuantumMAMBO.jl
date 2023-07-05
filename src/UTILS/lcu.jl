@@ -241,7 +241,7 @@ end
 
 function one_body_L1(H :: F_OP; count=false)
 	#get one-body 1-norm after correction from 2-body term
-	obf = to_OBF(H.mbts[2] + ob_correction(H))
+	obf = to_OBF(H.mbts[2] + ob_correction(H), H.spin_orb)
 
 	return OBF_L1(obf, count=count)
 end
