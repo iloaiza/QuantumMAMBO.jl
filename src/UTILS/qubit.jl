@@ -250,7 +250,7 @@ function AC_group(Q :: Q_OP; ret_ops = false, verbose = false)
     		push!(OPS, q_op)
     	end
 
-    	return L1_norm, OPS
+    	return sqrt.(group_L1), OPS
     end
 end
 
@@ -307,7 +307,7 @@ function vectorized_AC_group(Q :: Q_OP; ret_ops = false, verbose = false)
     		push!(OPS, q_op)
     	end
 
-    	return L1_norm, OPS
+    	return sqrt.(group_L1), OPS
     end
 end
 

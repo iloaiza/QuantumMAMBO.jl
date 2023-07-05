@@ -21,7 +21,7 @@ TABLE_PRINT = true #whether final 1-norms are printed for copy-pasting in LaTeX 
 mol_name = ARGS[1]
 
 import Pkg
-Pkg.activate("./")
+#Pkg.activate("./") # uncomment for using local QuantumMAMBO installation
 using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer
 
 ###### SAVELOAD ROUTINES FOR MOLECULAR HAMILTONIAN #######
