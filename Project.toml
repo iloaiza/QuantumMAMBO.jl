@@ -1,7 +1,7 @@
 name = "QuantumMAMBO"
 uuid = "e290813f-b153-47cd-bc0b-49e404587c69"
 authors = ["Ignacio Loaiza <ignacio.loaiza@mail.utoronto.ca>", "Aritra Brahmachari <aritrabrahmachari@gmail.com>"]
-version = "1.1.0"
+version = "1.1.1"
 
 [deps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
