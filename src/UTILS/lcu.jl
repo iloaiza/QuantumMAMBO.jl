@@ -310,3 +310,49 @@ function PAULI_L1(F :: F_OP; count=false)
 
 	return λ1+λ2
 end
+
+function PAULI_L2(F::F_OP; count=false)
+	if count
+		return PAULI_L1(Q_OP(F), count=true)
+	end
+
+	if F.spin_orb
+		return PAULI_L1(Q_OP(F), count=false)
+	end
+
+	l1 = 0.0
+	if F.Nbods > 2
+		error("Trying to calculate Pauli cost for fermionic operator with more than 2-body terms, not implemented!")
+	end
+	
+	if F.filled[2] && F.filled[3]
+		obt_mod = F.mbts[2] + ob_correction(F)
+		λ1 = sum(abs2.(obt_mod))
+		
+	elseif F.filled[2]
+		obt_mod = F.mbts[2]
+		λ1 = sum(abs2.(obt_mod))
+	elseif F.filled[3]
+		obt_mod = ob_correction(F)
+		λ1 = sum(abs2.(obt_mod))
+	else
+		λ1 = 0
+	end
+	
+	if F.filled[3]
+		λ2 = 0.5 * sum(abs2.(F.mbts[3]))
+		for r in 1:F.N
+			for p in r+1:F.N
+				for q in 1:F.N
+					for s in q+1:F.N
+						λ2 += abs2(F.mbts[3][p,q,r,s] - F.mbts[3][p,s,r,q])
+					end
+				end
+			end
+		end
+	else
+		λ2 = 0
+	end
+	return λ1+λ2
+
+end
