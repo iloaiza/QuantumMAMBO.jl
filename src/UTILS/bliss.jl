@@ -28,6 +28,52 @@ function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)
 	return F_OP((s0, s1, s2), spin_orb)
 end
 
+function quadratic_bliss_params_to_F_OP(u1, u2, ovec, η, N)
+	
+	omat = zeros(N,N)
+	idx=1
+	for i=1:N
+		for j=i:N
+			omat[i,j]=ovec[idx]
+			omat[j,i]=ovec[idx]
+			idx+=1
+		end
+	end
+	
+	
+	
+	Sconst = [-η - η^2]
+
+	Sobt = zeros(N, N)
+	Tobt = zeros(N, N)
+	for i in 1:N
+		Sobt[i,i] = u1
+		for j in 1:N
+			Tobt[i,j] = -2*η*omat[i,j]
+		end
+	end
+
+	Stbt = zeros(N, N, N, N)
+	Ttbt = zeros(N, N, N, N)
+
+	for i in 1:N
+		for j in 1:N
+			Stbt[i,i,j,j] = u2
+			for k in 1:N
+				
+				Ttbt[i,j,k,k] += omat[i,j]
+				Ttbt[k,k,i,j] += omat[i,j]
+			end
+		end
+	end
+
+	S = F_OP((Sconst, Sobt, Stbt))
+	T = F_OP(([0], Tobt, Ttbt))
+	ST = S+T
+	return ST
+end
+	
+
 function quadratic_ss(F :: F_OP, η)
 	hij = F.mbts[2]
 	gijkl = F.mbts[3]
@@ -65,7 +111,9 @@ function quadratic_ss(F :: F_OP, η)
 	return F - S
 end
 
-function quadratic_bliss(F :: F_OP, η)
+
+
+function quadratic_bliss(F, η)
 	hij = F.mbts[2]
 	gijkl = F.mbts[3]
 
@@ -73,6 +121,8 @@ function quadratic_bliss(F :: F_OP, η)
 	G = sum([gijkl[i,i,j,j] for i in 1:F.N, j in 1:F.N])
 
 	G1 = 0.0
+	
+
 	for i in 1:F.N
 		for j in 1:i-1
 			G1 += gijkl[i,j,j,i] - gijkl[i,i,j,j]
@@ -80,12 +130,15 @@ function quadratic_bliss(F :: F_OP, η)
 	end
 
 	Gnm = zeros(F.N, F.N)
+	
+	
 	Gtilde_nm = zeros(F.N, F.N)
 	Htilde_nm = zeros(F.N, F.N)
 
 	for n in 1:F.N
 		for m in 1:F.N
 			Gnm[n,m] = sum([gijkl[n,m,k,k] for k in 1:F.N])
+			
 			for k in 1:F.N
 				if k != n && k != m
 					Gtilde_nm[n,m] += gijkl[n,k,k,m] - gijkl[n,m,k,k]
@@ -98,22 +151,22 @@ function quadratic_bliss(F :: F_OP, η)
 	omat = zeros(F.N, F.N)
 	for i in 1:F.N
 		for j in i+1:F.N
-			omat[i,j] = omat[j,i] = Htilde_nm[i,j]/(4*(2*(η^2) -6*η*F.N+(F.N^2)+F.N-1))
+			omat[i,j] = omat[j,i] = -Htilde_nm[i,j]/(8(η-F.N)^2+2F.N+2(F.N-2))
 		end
 	end
 
-	α = 4*(η-F.N)*(2*η - 2*F.N)+2*F.N-2
-	β = 4 - 8*(η-F.N)
-	γ = 4*(F.N - η)
-	δ = 8*(F.N-η)*F.N + 4*F.N - 2
+	α = 8*(η-F.N)^2+4(F.N-1)
+	β = 24F.N-16η+4
+	γ = 8F.N-4η
+	δ = 16F.N^2-8η*F.N+4F.N-2
 
 	Htilde_n = zeros(F.N)
 	for n in 1:F.N
 		Htilde_n[n] = 4*(η-F.N)*(hij[n,n] + 2*Gnm[n,n]) + 2*Gtilde_nm[n,n] - 2*Gnm[n,n]
 	end
 
-	μ1 = 2*(3*F.N + 1)/(5*(F.N^2) - F.N)
-	μ2 = 4*(G + G1/2)/(5*(F.N^2) - F.N)
+	μ1 = -2/F.N
+	μ2 = (2G1-G)/(F.N*(1-2F.N))
 	λ1 = (H+2*G)/F.N
 	λ2 = -2*F.N
 	λ3 = 2*(η-2*F.N)/F.N
@@ -121,18 +174,19 @@ function quadratic_bliss(F :: F_OP, η)
 	ee = β+γ*λ1*μ1+γ*λ3+δ*μ1
 	Htt_n = zeros(F.N)
 	for n in 1:F.N
-		Htt_n[n] = Htilde_n[n] + γ*(λ1+λ2*μ2) + δ*μ2
+		Htt_n[n] = Htilde_n[n]-4H-8G + γ*(λ1+λ2*μ2) + δ*μ2
 	end
 
 	Htt = sum(Htt_n)
-	Osum = Htt/(α+ee*F.N)
+	Osum = -Htt/(α+ee*F.N)
 
 	for n in 1:F.N
-		omat[n,n] = -(Htt_n[n] - Osum*ee)/α
+		omat[n,n] = -(Htt_n[n] + Osum*ee)/α
 	end
 
 	u2 = μ1*Osum + μ2
 	u1 = λ1 + λ2*u2 + λ3*Osum
+	
 
 	Sconst = [-η - η^2]
 
@@ -152,20 +206,20 @@ function quadratic_bliss(F :: F_OP, η)
 		for j in 1:F.N
 			Stbt[i,i,j,j] = u2
 			for k in 1:F.N
-				Ttbt[i,j,k,k] = omat[i,j]
-				Ttbt[k,k,i,j] = omat[i,j]
+				Ttbt[i,j,k,k] += omat[i,j]
+				Ttbt[k,k,i,j] += omat[i,j]
 			end
 		end
 	end
-
+	
 	S = F_OP((Sconst, Sobt, Stbt))
 	T = F_OP(([0], Tobt, Ttbt))
 
 	FT = F - S - T
+	@show PAULI_L2(FT)
 
 	return FT
 end
-
 
 function bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
 	if SAVELOAD
@@ -218,6 +272,8 @@ function bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAM
 
 	return F - S
 end
+
+
 
 function Sz_builder(n_qubit)
 	Sz = zeros(n_qubit, n_qubit)
@@ -624,5 +680,4 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
 
     return F - s2 - s1, s1+s2
 end
-
 
