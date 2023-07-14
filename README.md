@@ -27,13 +27,19 @@ using QuantumMAMBO
 This allows for changes to be done in the package and tried out before creating a pull request for uploading a new version of the package.
 
 ### (3) Interface with Python
-For using QuantumMAMBO from a Python session, the `juliacall` Python package is required, which can be installed with `pip install juliacall`. Once installed, QuantumMAMBO can be run on a Python script as:
+For using QuantumMAMBO from a Python session, the `juliacall` Python package is required, which can be installed with `pip install juliacall`. Once installed, QuantumMAMBO can be installed on Python as:
 ```
 import juliacall
 from juliacall import Main as jl
 
 jl.seval('import Pkg')
 jl.seval('Pkg.add("QuantumMAMBO")')
+```
+Once installed, it can be imported as a Python module by running:
+```
+import juliacall
+from juliacall import Main as jl
+
 jl.seval("using QuantumMAMBO")
 
 mambo = jl.QuantumMAMBO
