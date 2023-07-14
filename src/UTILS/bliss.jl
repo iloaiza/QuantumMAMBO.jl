@@ -1,4 +1,4 @@
-#routines for finding fluid-body symmetry shifts
+#routines for finding block-invariant symmetry shifts (BLISS), see Ref.[2] in README for more information
 function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)+1) - 1)/2), spin_orb=false)
 	#builds S symmetry shift corresponding to S = s0+s1+s2
 	obt = zeros(N, N)
@@ -27,6 +27,7 @@ function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)
 
 	return F_OP((s0, s1, s2), spin_orb)
 end
+
 
 function quadratic_bliss_params_to_F_OP(u1, u2, ovec, η, N)
 	
@@ -112,8 +113,7 @@ function quadratic_ss(F :: F_OP, η)
 end
 
 
-
-function quadratic_bliss(F, η)
+function quadratic_bliss(F, η; verbose=false)
 	hij = F.mbts[2]
 	gijkl = F.mbts[3]
 
@@ -216,10 +216,15 @@ function quadratic_bliss(F, η)
 	T = F_OP(([0], Tobt, Ttbt))
 
 	FT = F - S - T
-	@show PAULI_L2(FT)
+	if verbose
+		println("Finished quadratic BLISS routine, showing initial and final 2-norms...")
+		@show PAULI_L2(F)
+		@show PAULI_L2(FT)
+	end
 
 	return FT
 end
+
 
 function bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
 	if SAVELOAD
@@ -272,7 +277,6 @@ function bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAM
 
 	return F - S
 end
-
 
 
 function Sz_builder(n_qubit)
