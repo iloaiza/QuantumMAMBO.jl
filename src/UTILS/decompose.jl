@@ -393,6 +393,45 @@ function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, 
     return FRAGS
 end
 
+function DF_based_greedy(F :: F_OP)
+	#obtains greedy CSA fragment by using orbital frame from largest DF fragment and collecting Cartan coefficients from operator in this frame
+	DF_FRAGS = DF_decomposition(F, do_Givens=false)
+	F1 = DF_FRAGS[1]
+	Lmat = zeros(F.N, F.N)
+
+	for i in 1:F.N
+		Lmat[i,i] = F1.C.λ[i]^2
+		for j in i+1:F.N
+			Lmat[i,j] = Lmat[j,i] = F1.C.λ[i] * F1.C.λ[j]
+		end
+	end
+	Lmat *= F1.coeff
+
+	U1 = one_body_unitary(F1.U[1])
+	U1dag = U1'
+
+	for m in 2:length(DF_FRAGS)
+		Fm = DF_FRAGS[m]
+		Um = one_body_unitary(Fm.U[1])
+		Vm = Um * U1dag
+		for i in 1:F.N
+			for j in 1:F.N
+				for p in 1:F.N
+					for q in 1:F.N
+						Lmat[i,j] += Fm.C.λ[p] * Fm.C.λ[q] * abs2(Vm[i,p]) * abs2(Vm[j,q]) * Fm.coeff
+					end
+				end
+			end
+		end
+	end
+
+	C = cartan_mat_to_2b(Lmat, F.spin_orb)
+	F = F_FRAG(1, F1.U, CSA(), C, F.N, F.spin_orb)
+
+	return F
+end
+
+
 function MTD_CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
 
 	function cost(x)

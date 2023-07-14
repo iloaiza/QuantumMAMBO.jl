@@ -31,6 +31,22 @@ function cartan_2b_to_tbt(C :: cartan_2b)
 	return tbt
 end
 
+function cartan_mat_to_2b(mat :: Array, spin_orb=false)
+	#transforms λij matrix corresponding to two-electron CSA polynomial into cartan_2b structure
+	N = size(mat)[1]
+	λs = zeros(cartan_2b_num_params(N))
+
+	idx = 1
+	for i in 1:N
+		for j in 1:i
+			λs[idx] = (mat[i,j] + mat[j,i])/2
+			idx += 1
+		end
+	end
+
+	return cartan_2b(spin_orb, λs, N)
+end
+
 function cartan_2b_num_params(N)
 	return Int(N*(N+1)/2)
 end
