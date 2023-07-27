@@ -84,6 +84,7 @@ mambo = jl.QuantumMAMBO
 	- majorana.jl: utilities for QuantumMAMBO Majorana operators class (M_OP, defined in structures.jl)
 	- orbitals.jl: orbital optimization routine for 1-norm minimization (see Koridon et al., Phys. Rev. Res. 3 (3), 2021. Material is also covered in Refs. 1 and 2)
 	- parallel.jl: code with parallel capabilities, mainly for trotter bounds (under construction)
+	- planted.jl: routines for obtaining planted solutions for a given Hamiltonian
 	- projectors.jl: builds projectors of Fock space into constant number of electrons subspace, useful for Trotter bounds (under progress)
 	- py_qubits.jl: python utilities for qubit operators, interfaces with openfermion
 	- py_utils.jl: julia interface to all python modules and openfermion
