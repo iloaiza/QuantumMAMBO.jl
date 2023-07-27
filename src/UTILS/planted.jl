@@ -19,12 +19,12 @@ function MF_planted(H :: F_OP; method="DF-boost", OB = false)
 		Hso = F_OP_collect_obt(H)
 		if method == "DF"
 			FRAG = DF_decomposition(Hso)[1]
-			return FRAG
+			return to_CSA_SD(FRAG)
 		end
 
 		if method == "DF-boost"
 			FRAG = DF_based_greedy(Hso)
-			return FRAG
+			return to_CSA_SD(FRAG)
 		end
 	else
 		if method == "DF"
