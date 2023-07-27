@@ -10,8 +10,7 @@ function MF_planted(H :: F_OP; method="DF-boost", OB = false)
 				CSA method runs CSA_SD, which includes one-body tensor in optimization
 	=#
 	if method == "CSA"
-		FRAG = CSA_SD_greedy_decomposition(Hp, 1, SAVELOAD=false)[1]
-		H1 = to_OP(FRAG)
+		FRAG = CSA_SD_greedy_decomposition(H, 1, SAVELOAD=false)[1]
 
 		return FRAG
 	end
