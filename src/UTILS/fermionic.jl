@@ -570,3 +570,30 @@ end
 function eri_to_F_OP(obt, tbt, hconst :: Number)
 	return eri_to_F_OP(obt, tbt, [hconst])
 end
+
+function to_CSA_SD(F :: F_FRAG)
+	#transforms fragment into CSA_SD fragment
+	if F.TECH == THC()
+		error("Cannot transform THC fragment into CSA_SD, different number of unitaries")
+	elseif F.TECH == CSA_SD()
+		return F
+	elseif F.TECH == CSA()
+		C = cartan_SD(F.spin_orb, zeros(F.N), F.C.λ, F.N)
+		return F_FRAG(F.nUs, F.U, CSA_SD(), C, F.N, F.spin_orb, F.coeff, F.has_coeff)
+	elseif F.TECH == DF()
+		Cmat = zeros(F.N, F.N)
+		for i in 1:F.N
+			for j in 1:F.N
+				Cmat[i,j] = F.C.λ[i] * F.C.λ[j]
+			end
+		end
+		C2b = cartan_mat_to_2b(Cmat, F.spin_orb)
+		C = cartan_SD(F.spin_orb, zeros(F.N), C2b.λ, F.N)
+		return F_FRAG(F.nUs, F.U, CSA_SD(), C, F.N, F.spin_orb, F.coeff, F.has_coeff)
+	else
+		error("Transformation into CSA_SD frag not defined for fragment type $(F.TECH)")
+	end
+end
+
+
+
