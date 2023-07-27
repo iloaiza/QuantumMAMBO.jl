@@ -3,6 +3,10 @@ function one_body_unitary(U :: f_matrix_rotation)
 	return U.mat
 end
 
+function one_body_unitary(U :: c_matrix_rotation)
+	return U.mat
+end
+
 function one_body_unitary(U :: givens_real_orbital_rotation)
 	#returns one-body matrix corresponding to unitary real rotation (SO(N))
 	Urot = collect(Diagonal(ones(U.N)))
