@@ -204,10 +204,16 @@ struct givens_orbital_rotation  <: F_UNITARY
 	# G(N(N-1) + 1) => i∑_σ E^(1σ)_(1σ), ..., G(N^2) => E^N_N
 end
 
-struct f_matrix_rotation <: F_UNITARY
+struct f_matrix_rotation <: REAL_F_UNITARY
 	#rotation that is given in matrix form directly
 	N :: Int64 #number of orbitals
-	mat :: Array{Number, 2}
+	mat :: Array{Float64, 2}
+end
+
+struct c_matrix_rotation <: F_UNITARY
+	#rotation that is given in matrix form directly
+	N :: Int64 #number of orbitals
+	mat :: Array{Complex{Float64}, 2}
 end
 
 abstract type FRAGMENT <: OPERATOR
