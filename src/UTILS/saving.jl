@@ -164,7 +164,7 @@ end
 function save_frag(F :: F_FRAG, fname = DATAFOLDER*"fragment.h5", frag_name = "CSA_SD")
 	if F.TECH != CSA_SD()
 		println("Saving fragment that is not CSA_SD, not fully implemented...")
-		return save_frag(to_CSA_SD(F), fname)
+		return save_frag(to_CSA_SD(F), fname, frag_name)
 	end
 	fid = h5open(fname, "cw")
 
