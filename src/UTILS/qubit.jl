@@ -81,7 +81,7 @@ function Q_OP(M :: M_OP, transformation = F2Q_map, tol = PAULI_TOL)
 	end
 	tol2 = tol^2
 
-	n_paulis = Int(N^2/2 + N^4/4 + (N^2)*((N/2-1)^2)/16) #upper-bound for total number of Pauli words
+	n_paulis = Int(N^2 + N^4 + (N^2)*((N-1)^2)) #upper-bound for total number of Pauli words
 	pws = [pw_zero(N) for i in 1:n_paulis]
 
 	#identity term
@@ -493,7 +493,7 @@ function commutator(Q1 :: Q_OP, Q2 :: Q_OP)
 	return Q1*Q2 - Q2*Q1
 end
 
-#= DEPRECATED IMPLEMENTATION, REQUIRES COSTLY TYPE CONVERSIONS. EFFICIENT IMPLEMENTATION USES OPENFERMION
+#= DEPRECATED IMPLEMENTATION, REQUIRES COSTLY TYPE CONVERSIONS. MORE EFFICIENT IMPLEMENTATION USES OPENFERMION
 function to_matrix(Q :: Q_OP; do_sparse = true)
 	mat = Q.id_coeff * sparse(Diagonal(ones(Complex,2^(Q.N)))) |> SparseMatrixCSC{Complex, Int64}
 	
