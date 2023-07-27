@@ -7,17 +7,12 @@ module QuantumMAMBO
 		include("config.jl")
 	end
 
-	if !(@isdefined SAVING_LOADED) && SAVING #only include saving file one time if saving option is on
-		include(UTILS_dir * "saving.jl")
-		global SAVING_LOADED = true
-	end
-
 	include(UTILS_dir * "symplectic.jl")
 	include(UTILS_dir * "structures.jl")
 	include(UTILS_dir * "unitaries.jl")
 	include(UTILS_dir * "fermionic.jl")
 	include(UTILS_dir * "cost.jl")
-        include(UTILS_dir * "gradient.jl")
+	include(UTILS_dir * "gradient.jl")
 	include(UTILS_dir * "decompose.jl")
 	include(UTILS_dir * "symmetries.jl")
 	include(UTILS_dir * "linprog.jl")
@@ -38,5 +33,11 @@ module QuantumMAMBO
 		include(UTILS_dir * "parallel.jl")
 	end
 
+	include(UTILS_dir * "planted.jl")
 	include(UTILS_dir * "wrappers.jl")
+
+	if !(@isdefined SAVING_LOADED) && SAVING #only include saving file one time if saving option is on
+		include(UTILS_dir * "saving.jl")
+		global SAVING_LOADED = true
+	end
 end
