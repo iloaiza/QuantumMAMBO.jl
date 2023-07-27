@@ -184,7 +184,7 @@ function save_frag(F :: F_FRAG, fname = DATAFOLDER*"fragment.h5", frag_name = "C
 	G["coeff"] = F.coeff
 	G["has_coeff"] = F.has_coeff
 
-	print("Saved fragment in file $fname under group $frag_name")
+	println("Saved fragment in file $fname under group $frag_name")
 
 	close(fid)
 end
