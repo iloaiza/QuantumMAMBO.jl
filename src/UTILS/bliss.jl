@@ -188,7 +188,7 @@ function quadratic_bliss(F, η; verbose=false)
 	u1 = λ1 + λ2*u2 + λ3*Osum
 	
 
-	Sconst = [-η - η^2]
+	Sconst = [-u1*η - u2*(η^2)]
 
 	Sobt = zeros(F.N, F.N)
 	Tobt = zeros(F.N, F.N)
