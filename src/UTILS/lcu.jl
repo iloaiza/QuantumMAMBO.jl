@@ -15,6 +15,19 @@ function L1(F :: F_FRAG; debug = false, count = false)
 	end
 end
 
+function Fock_bound(H :: F_OP)
+	#gives a lower bound for the spectral range (Emax-Emin)/2 from Fock matrix
+	obt = H.mbts[2]
+	if H.Nbods == 2
+		obt += ob_correction(H)
+	end
+
+	Hob = F_OP(obt, H.spin_orb)
+	frag = to_OBF(Hob)
+
+	return OBF_L1(frag, count=false)
+end
+
 function L1(F_arr :: Array{F_FRAG}; debug=false, count=true)
 	return sum(L1.(F_arr, debug=debug, count=count))
 end
