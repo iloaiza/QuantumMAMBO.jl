@@ -1,18 +1,18 @@
 # OPTIONS FOR WHAT ROUTINES SHOULD BE RAN
-DO_CSA = false #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
+DO_CSA = true #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
 DO_DF = true #perform Double-Factorization (DF) decomposition of Hamiltonian
-DO_ΔE = true #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
+DO_ΔE = false #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
 DO_AC = true #do anticommuting grouping technique
-DO_OO = true #do orbital optimization routine
+DO_OO = false #do orbital optimization routine
 DO_SQRT = false #obtain square-root factorization 1-norms
-DO_MHC = true #do Majorana Hyper-Contraction routine (SVD-based MTD-1ˆ4)
+DO_MHC = false #do Majorana Hyper-Contraction routine (SVD-based MTD-1ˆ4)
 DO_MTD_CP4 = false #MTD-1ˆ4
 DO_THC = false #tensor hypercontraction
 SYM_SHIFT = false #do symmetry-shift optimization routine (i.e. partial shift)
 INT = false #do interaction picture optimization routines
-verbose = false #verbose for sub-routines
+verbose = true #verbose for sub-routines
 COUNT = true #whether total number of unitaries should be counted
-BLISS = false #whether block-invariant symmetry shift routine is done
+BLISS = true #whether block-invariant symmetry shift routine is done
 DO_TROTTER = false #whether Trotter α is calculated, requires parallel routines
 DO_FC = false #whether fully-commuting routine is done
 TABLE_PRINT = true #whether final 1-norms are printed for copy-pasting in LaTeX table
@@ -21,8 +21,10 @@ TABLE_PRINT = true #whether final 1-norms are printed for copy-pasting in LaTeX 
 mol_name = ARGS[1]
 
 import Pkg
+
 Pkg.activate("./")
-using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer
+using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, quadratic_bliss, bliss_linprog, quadratic_bliss_optimizer
+
 
 ###### SAVELOAD ROUTINES FOR MOLECULAR HAMILTONIAN #######
 FILENAME = DATAFOLDER*mol_name
@@ -55,8 +57,10 @@ end
 if BLISS
 	println("\n\n Starting block-invariant symmetry shift (BLISS) routine...")
 	println("BLISS optimization...")
-	H_bliss = bliss_optimizer(H, η, verbose=verbose, SAVENAME=FILENAME*"_BLISS.h5")
+	#H_bliss = quadratic_bliss_optimizer(H, η, verbose=verbose, SAVENAME=FILENAME*"_BLISS.h5")
 	#H_bliss = quadratic_bliss(H, η)
+	H_bliss,_=bliss_linprog(H, η)
+	
 	println("Running 1-norm routines...")
 	RUN_L1(H_bliss, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, LATEX_PRINT = TABLE_PRINT, 
 		DO_FC = DO_FC, SYM_RED=DO_TROTTER, DO_AC = DO_AC, DO_OO = DO_OO, DO_THC = DO_THC, 
