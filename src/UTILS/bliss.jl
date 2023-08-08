@@ -73,6 +73,52 @@ function quadratic_bliss_params_to_F_OP(u1, u2, ovec, η, N)
 	ST = S+T
 	return ST
 end
+
+
+function bliss_linprog_params_to_F_OP(u1, u2, ovec, η, N)
+	
+	omat = zeros(N,N)
+	idx=1
+	for i=1:N
+		for j=i:N
+			omat[i,j]=ovec[idx]
+			omat[j,i]=ovec[idx]
+			idx+=1
+		end
+	end
+	
+	
+	
+	Sconst = [-η - η^2]
+
+	Sobt = zeros(N, N)
+	Tobt = zeros(N, N)
+	for i in 1:N
+		Sobt[i,i] = u1
+		for j in 1:N
+			Tobt[i,j] = -η*omat[i,j]
+		end
+	end
+
+	Stbt = zeros(N, N, N, N)
+	Ttbt = zeros(N, N, N, N)
+
+	for i in 1:N
+		for j in 1:N
+			Stbt[i,i,j,j] = u2
+			for k in 1:N
+				
+				Ttbt[i,j,k,k] += 0.5*omat[i,j]
+				Ttbt[k,k,i,j] += 0.5*omat[i,j]
+			end
+		end
+	end
+
+	S = F_OP((Sconst, Sobt, Stbt))
+	T = F_OP(([0], Tobt, Ttbt))
+	ST = S+T
+	return ST
+end
 	
 
 function quadratic_ss(F :: F_OP, η)
@@ -237,6 +283,7 @@ function bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAM
 				t1 = read(BLISS_group,"t1")
 				t2 = read(BLISS_group,"t2")
 				close(fid)
+
 				S = bliss_sym_params_to_F_OP(ovec, t1, t2, η, F.N, F.spin_orb)
 				close(fid)
 				return F-S
@@ -278,6 +325,62 @@ function bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAM
 	return F - S
 end
 
+function quadratic_bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
+	#=if SAVELOAD
+		fid = h5open(SAVENAME, "cw")
+		if haskey(fid, "BLISS")
+			BLISS_group = fid["BLISS"]
+			if haskey(BLISS_group, "ovec")
+				println("Loading results for BLISS optimization from $SAVENAME")
+				ovec = read(BLISS_group,"ovec")
+				t1 = read(BLISS_group,"t1")
+				t2 = read(BLISS_group,"t2")
+				close(fid)
+				S = bliss_sym_params_to_F_OP(ovec, t1, t2, η, F.N, F.spin_orb)
+				close(fid)
+				return F-S
+			end
+		end
+		close(fid)
+	end=#
+	L = Int(F.N*(F.N+1)/2)
+	x0 = zeros(L + 2)
+	
+	
+	function cost(x)
+		#@show quadratic_bliss_gradient(x, F, η, F.N)
+		return PAULI_L1(F - quadratic_bliss_params_to_F_OP(x[1], x[2], x[3:end], η, F.N))
+	end
+	
+	#=function grad!(storage,x)
+		storage.=quadratic_bliss_gradient(x, F, η, F.N)
+	end=#
+	
+	if verbose
+		println("Starting 1-norm cost:")
+		@show cost(x0)
+		@time sol = optimize(cost,  x0, BFGS(), Optim.Options(show_trace=false, extended_trace=true, show_every=1, f_tol = 1e-3))
+		println("Final 1-norm cost:")
+		@show sol.minimum
+	else
+		sol = optimize(cost, x0, BFGS())
+	end
+	
+	@show xsol = sol.minimizer
+	#=if SAVELOAD
+		fid = h5open(SAVENAME, "cw")
+		create_group(fid, "BLISS")
+		BLISS_group = fid["BLISS"]
+		println("Saving results of BLISS optimization to $SAVENAME")
+		BLISS_group["ovec"] = xsol[3:end]
+		BLISS_group["t1"] = xsol[1]
+		BLISS_group["t2"] = xsol[2]
+		close(fid)
+	end=#
+	ST = quadratic_bliss_params_to_F_OP(xsol[1], xsol[2], xsol[3:end], η, F.N)
+
+	return F - ST
+end
 
 function Sz_builder(n_qubit)
 	Sz = zeros(n_qubit, n_qubit)
@@ -455,6 +558,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
         error("Not defined for model = $model")
     end
     
+    
     if verbose == false
         set_silent(L1_OPT)
     end
@@ -470,10 +574,13 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
         obt[1:ν1_len]
         tbt1[1:ν2_len]
         tbt2[1:ν3_len]
-        omat[1:ν1_len]
+        omat[1:F.N^2]
     end)
 
     @objective(L1_OPT, Min, sum(obt)+sum(tbt1)+sum(tbt2))
+    
+
+	
 
     obt_corr = ob_correction(F)
     #1-body 1-norm
@@ -502,12 +609,12 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     	for j in 1:F.N
     		idx += 1
     		if i == j
-    			τ_11[idx] = 1
+    			τ_12[idx] = 1
     		end
     	end
     end
     T1 = zeros(ν1_len,ν1_len)
-    T1 += Diagonal((η - F.N/2)*ones(ν1_len))
+    T1 += Diagonal((2η - 2F.N)*ones(ν1_len))
     idx1 = 0
     for i in 1:F.N
     	for j in 1:F.N
@@ -517,15 +624,17 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     			for l in 1:F.N
     				idx2 += 1
     				if i == j && k == l
- 	   					T1[idx1,idx2] -= 1
+ 	   					T1[idx1,idx2] -= 2
  	   				end
  	   			end
  	   		end
  	   	end
  	end
+ 	
+ 	
  	@constraint(L1_OPT, low_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat - obt .<= 0)
- 	@constraint(L1_OPT, high_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat + obt .<= 0)
-
+	@constraint(L1_OPT, high_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat + obt .>= 0)
+	
  	#2-body αβ/βα 1-norm
  	λ2 = zeros(ν2_len)
     idx = 0
@@ -576,9 +685,18 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     		end
     	end
     end
+    
     @constraint(L1_OPT, low_2, λ2 - τ_21*t[1] - 0.5*T2*omat - tbt1 .<= 0)
-    @constraint(L1_OPT, high_2, λ2 - τ_21*t[1] - 0.5*T2*omat + tbt1 .<= 0)
-
+    @constraint(L1_OPT, high_2, λ2 - τ_21*t[1] - 0.5*T2*omat + tbt1 .>= 0)
+    
+    T_dict = zeros(Int64,F.N,F.N)
+    idx = 0
+    for i in 1:F.N
+    	for j in 1:F.N
+    		idx += 1
+    		T_dict[i,j] = idx
+    	end
+    end
     #2-body αα/ββ 1-norm
     λ3 = zeros(ν3_len)
     idx = 0
@@ -611,14 +729,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     	end
     end
     
-    T_dict = zeros(Int64,F.N,F.N)
-    idx = 0
-    for i in 1:F.N
-    	for j in 1:F.N
-    		idx += 1
-    		T_dict[i,j] = idx
-    	end
-    end
+    
 
     T3 = zeros(ν3_len,ν1_len)
     idx = 0
@@ -651,37 +762,42 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     		end
     	end
     end
-
-    @constraint(L1_OPT, low_3, λ3 - τ_31*t[1] - 0.5*T3*omat - tbt2 .<= 0)
-    @constraint(L1_OPT, high_3, λ3 - τ_31*t[1] - 0.5*T3*omat + tbt2 .<= 0)
-
+   
+    @constraint(L1_OPT, low_3, λ3 - τ_31*t[1] - T3*omat - tbt2 .<= 0)
+    @constraint(L1_OPT, high_3, λ3 - τ_31*t[1] - T3*omat + tbt2 .>= 0)
+    
     optimize!(L1_OPT)
-
+    
     t_opt = value.(t)
     o_opt = value.(omat)
+    
     O = zeros(F.N,F.N)
     for i in 1:F.N
     	for j in 1:F.N
     		O[i,j] = o_opt[T_dict[i,j]]
     	end
     end
-
+    
     Ne,Ne2 = symmetry_builder(F)
+    
+    
     
     s2_tbt = t_opt[1] * Ne2.mbts[3]
     for i in 1:F.N
     	for j in 1:F.N
     		for k in 1:F.N
-    			s2_tbt[i,j,k,k] += 0.5*O[i,j]
-    			s2_tbt[k,k,i,j] += 0.5*O[i,j]
+    			s2_tbt[i,j,k,k] += O[i,j]
+    			s2_tbt[k,k,i,j] += O[i,j]
     		end
     	end
     end
     s2 = F_OP(([0],[0],s2_tbt))
 
-    s1_obt = t_vec[2]*Ne.mbts[2] - η*O
+    s1_obt = t_opt[2]*Ne.mbts[2] - 2η*O
     s1 = F_OP(([0],s1_obt))
-
-    return F - s2 - s1, s1+s2
+    
+    F_new=F - s1-s2
+    println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
+    return F_new, s1+s2
 end
 

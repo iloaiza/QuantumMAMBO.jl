@@ -1,7 +1,7 @@
 # OPTIONS FOR WHAT ROUTINES SHOULD BE RAN
-DO_CSA = false #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
+DO_CSA = true #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
 DO_DF = true #perform Double-Factorization (DF) decomposition of Hamiltonian
-DO_ΔE = true #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
+DO_ΔE = false #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
 FOCK_BOUND = true #obtain lower bound for ΔE/2 using Fock matrix, can be done when ΔE is not accessible!
 DO_AC = true #do anticommuting grouping technique
 DO_OO = false #do orbital optimization routine
@@ -11,7 +11,7 @@ DO_MTD_CP4 = false #MTD-1ˆ4
 DO_THC = false #tensor hypercontraction
 SYM_SHIFT = true #do symmetry-shift optimization routine (i.e. partial shift)
 INT = false #do interaction picture optimization routines
-verbose = false #verbose for sub-routines
+verbose = true #verbose for sub-routines
 COUNT = true #whether total number of unitaries should be counted
 BLISS = true #whether block-invariant symmetry shift routine is done
 DO_TROTTER = false #whether Trotter α is calculated, requires parallel routines
@@ -23,8 +23,10 @@ SYM_SUBSPACE = false #whether spectral range is calculated for Hamiltonian in re
 mol_name = ARGS[1]
 
 import Pkg
+
 Pkg.activate("./") # uncomment for using local QuantumMAMBO installation
-using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, PAULI_L1, quadratic_bliss, Ne_block_diagonalizer, matrix_symmetry_block, to_matrix
+using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, PAULI_L1, quadratic_bliss, Ne_block_diagonalizer, matrix_symmetry_block, to_matrix, bliss_linprog, quadratic_bliss_optimizer
+
 
 ###### SAVELOAD ROUTINES FOR MOLECULAR HAMILTONIAN #######
 FILENAME = DATAFOLDER*mol_name
@@ -61,6 +63,9 @@ end
 if BLISS
 	println("\n\n Starting block-invariant symmetry shift (BLISS) routine...")
 	println("BLISS optimization...")
+	H_bliss,_=bliss_linprog(H, η)
+	
+	println("Running 1-norm routines...")
 	@time H_bliss = bliss_optimizer(H, η, verbose=verbose, SAVENAME=FILENAME*"_BLISS.h5")
 	RUN_L1(H_bliss, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, LATEX_PRINT = TABLE_PRINT, 
 		DO_FC = DO_FC, SYM_RED=DO_TROTTER, DO_AC = DO_AC, DO_OO = DO_OO, DO_THC = DO_THC, 
