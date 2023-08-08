@@ -369,7 +369,11 @@ function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, 
 				FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, H.spin_orb, Λ[i], true)
 			end
 		else
-			Rl = f_matrix_rotation(n, Ul)
+			if sum(abs.(imag.(Ul))) < 1e-8
+				Rl = f_matrix_rotation(n, Ul)
+			else
+				Rl = c_matrix_rotation(n, Ul)
+			end
 			C = cartan_1b(H.spin_orb, ωl, n)
 			FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, H.spin_orb, Λ[i], true)
 		end
