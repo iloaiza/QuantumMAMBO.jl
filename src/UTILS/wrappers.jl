@@ -296,11 +296,12 @@ end
 function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO = true,
 			 DO_SQRT = false, max_frags = 10000, verbose=true, COUNT=false, DO_TROTTER = false,
 			 DO_MHC = true, DO_MTD_CP4 = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
-			 DO_FC = true, SYM_RED = true, DO_THC = false)
+			 DO_FC = true, SYM_RED = true, DO_THC = false, FOCK_BOUND=true)
 	# Obtain 1-norms for different LCU methods. COUNT=true also counts number of unitaries in decomposition
 	# CSA: Cartan sub-algebra decomposition
 	# DF: Double Factorization
 	# ΔE: Exact lower bound from diagonalization of H
+	# FOCK_BOUND: (efficient) computation of lower bound for ΔE using Fock matrix
 	# AC: Anticommuting grouping
 	# OO: Orbital rotation technique
 	# SQRT: obtain square-root lower bound for non-optimal factorization methods (i.e. CSA)
@@ -335,6 +336,14 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@show λ_min
 		push!(METHODS, "ΔE/2")
 		push!(Λs, λ_min)
+	end
+
+	if FOCK_BOUND
+		println("Calculating lower bound for ΔE/2 using Fock matrix...")
+		@time λ_fock = Fock_bound(H)
+		@show λ_fock
+		push!(METHODS, "Fock")
+		push!(Λs, λ_fock)
 	end
 
 	if SYM_RED

@@ -112,9 +112,9 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_
 		end
 	else
 		if do_grad
-			return optimize(cost, grad!, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		else
-			return optimize(cost, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		end
 	end
 end
@@ -238,9 +238,9 @@ function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print = DECOMPOS
 		end
 	else
 		if do_grad
-			return optimize(cost, SD_grad!, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, SD_grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		else		
-			return optimize(cost, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
+			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
 		end
 	end
 end
@@ -311,7 +311,7 @@ function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, 
 	tbt_full = reshape(H.mbts[3], (N,N))
 	tbt_res = Symmetric(tbt_full)
 	if sum(abs.(tbt_full - tbt_res)) > tiny
-		println("Non-symmetric two-body tensor as input for SVD routine, calculations might have errors...")
+		println("Non-symmetric two-body tensor as input for DF routine, calculations might have errors...")
 		tbt_res = tbt_full
 	end
 
@@ -330,7 +330,7 @@ function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, 
     for i in 1:N
     	if abs(Λ[i]) < tol
     		if verbose
-    			println("Truncating SVD for coefficients with magnitude smaller or equal to $(abs(Λ[i])), using $(i-1) fragments")
+    			println("Truncating DF for SVD coefficients with magnitude smaller or equal to $(abs(Λ[i])), using $(i-1) fragments")
     		end
     		num_ops = i-1
     		break
@@ -348,7 +348,7 @@ function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, 
         sym_dif = sum(abs2.(cur_l - full_l))
         if sym_dif > tiny
         	if sum(abs.(full_l + full_l')) > tiny
-				error("SVD operator $i is neither Hermitian or anti-Hermitian, cannot do double factorization into Hermitian fragment!")
+				error("DF fragment $i is neither Hermitian or anti-Hermitian!")
 			end
         	cur_l = Hermitian(1im * full_l)
         	Λ[i] *= -1
@@ -358,20 +358,20 @@ function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, 
 		if do_Givens
 			if sum(abs.(imag.(log(Ul)))) > 1e-8
 				Rl = f_matrix_rotation(n, Ul)
-				C = cartan_1b(false, ωl, n)
-				FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, false, Λ[i], true)
+				C = cartan_1b(H.spin_orb, ωl, n)
+				FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, H.spin_orb, Λ[i], true)
 			else
 				Rl = SOn_to_MAMBO_full(Ul, verbose = false)
 				if sum(abs2.(Ul - one_body_unitary(Rl))) > ϵ_Givens
 					Rl = f_matrix_rotation(n, Ul)
 				end
-				C = cartan_1b(false, ωl, n)
-				FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, false, Λ[i], true)
+				C = cartan_1b(H.spin_orb, ωl, n)
+				FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, H.spin_orb, Λ[i], true)
 			end
 		else
 			Rl = f_matrix_rotation(n, Ul)
-			C = cartan_1b(false, ωl, n)
-			FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, false, Λ[i], true)
+			C = cartan_1b(H.spin_orb, ωl, n)
+			FRAGS[i] = F_FRAG(1, tuple(Rl), DF(), C, n, H.spin_orb, Λ[i], true)
 		end
 	end
 
@@ -392,6 +392,45 @@ function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, 
     
     return FRAGS
 end
+
+function DF_based_greedy(F :: F_OP)
+	#obtains greedy CSA fragment by using orbital frame from largest DF fragment and collecting Cartan coefficients from operator in this frame
+	DF_FRAGS = DF_decomposition(F, do_Givens=false)
+	F1 = DF_FRAGS[1]
+	Lmat = zeros(F.N, F.N)
+
+	for i in 1:F.N
+		Lmat[i,i] = F1.C.λ[i]^2
+		for j in i+1:F.N
+			Lmat[i,j] = Lmat[j,i] = F1.C.λ[i] * F1.C.λ[j]
+		end
+	end
+	Lmat *= F1.coeff
+
+	U1 = one_body_unitary(F1.U[1])
+	U1dag = U1'
+
+	for m in 2:length(DF_FRAGS)
+		Fm = DF_FRAGS[m]
+		Um = one_body_unitary(Fm.U[1])
+		Vm = Um * U1dag
+		for i in 1:F.N
+			for j in 1:F.N
+				for p in 1:F.N
+					for q in 1:F.N
+						Lmat[i,j] += Fm.C.λ[p] * Fm.C.λ[q] * abs2(Vm[i,p]) * abs2(Vm[j,q]) * Fm.coeff
+					end
+				end
+			end
+		end
+	end
+
+	C = cartan_mat_to_2b(Lmat, F.spin_orb)
+	F = F_FRAG(1, F1.U, CSA(), C, F.N, F.spin_orb)
+
+	return F
+end
+
 
 function MTD_CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
 

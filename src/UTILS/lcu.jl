@@ -15,6 +15,23 @@ function L1(F :: F_FRAG; debug = false, count = false)
 	end
 end
 
+function Fock_bound(H :: F_OP)
+	#gives a lower bound for the spectral range (Emax-Emin)/2 from Fock matrix
+	obt = H.mbts[2]
+	if H.Nbods == 2
+		obt += ob_correction(H)
+	end
+
+	Hob = F_OP(obt, H.spin_orb)
+	frag = to_OBF(Hob)
+
+	return OBF_L1(frag, count=false)
+end
+
+function L1(F_arr :: Array{F_FRAG}; debug=false, count=true)
+	return sum(L1.(F_arr, debug=debug, count=count))
+end
+
 function SQRT_L1(F :: F_OP; count = false)
 	#return minimal 1-norm for fermionic operator, does not scale well!
 	of_OP = qubit_transform(to_OF(F))
@@ -237,7 +254,7 @@ end
 
 function one_body_L1(H :: F_OP; count=false)
 	#get one-body 1-norm after correction from 2-body term
-	obf = to_OBF(H.mbts[2] + ob_correction(H))
+	obf = to_OBF(H.mbts[2] + ob_correction(H), H.spin_orb)
 
 	return OBF_L1(obf, count=count)
 end

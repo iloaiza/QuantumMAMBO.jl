@@ -160,3 +160,54 @@ function loading(funcname::String,addname=false)
 
 	return paramsNames,retArr
 end
+
+function save_frag(F :: F_FRAG, fname = DATAFOLDER*"fragment.h5", frag_name = "CSA_SD")
+	if F.TECH != CSA_SD()
+		println("Saving fragment that is not CSA_SD, not fully implemented...")
+		return save_frag(to_CSA_SD(F), fname, frag_name)
+	end
+	fid = h5open(fname, "cw")
+
+	G = create_group(fid, frag_name)
+	G["TECH"] = "CSA_SD"
+	u_string = split("$(typeof(F.U[1]))", ".")[end]
+	G["u_type"] = u_string
+	if u_string == "f_matrix_rotation"
+		G["u_params"] = F.U[1].mat
+	else
+		G["u_params"] = F.U[1].θs
+	end
+	G["N"] = F.N
+	G["C_lambda_1"] = F.C.λ1
+	G["C_lambda_2"] = F.C.λ2
+	G["spin_orb"] = F.spin_orb
+	G["coeff"] = F.coeff
+	G["has_coeff"] = F.has_coeff
+
+	println("Saved fragment in file $fname under group $frag_name")
+
+	close(fid)
+end
+
+function load_frag(fname, frag_name = "CSA_SD")
+	fid = h5open(fname, "cw")
+
+	G = fid[frag_name]
+	if read(G["TECH"]) != "CSA_SD"
+		error("""Trying to load fragment of type $(G["TECH"]), not implemented!""")
+	end
+	N = read(G["N"])
+	nUs = 1
+	u_params = read(G["u_params"])
+	u_string = read(G["u_type"])
+	u1 = eval(Meta.parse("$u_string($(N),$(u_params))"))
+	U = tuple(u1)
+	spin_orb = read(G["spin_orb"])
+	C = cartan_SD(spin_orb, read(G["C_lambda_1"]), read(G["C_lambda_2"]), N)
+	coeff = read(G["coeff"])
+	has_coeff = read(G["has_coeff"])
+
+	close(fid)
+
+	return F_FRAG(1, U, CSA_SD(), C, N, spin_orb, coeff, has_coeff)
+end

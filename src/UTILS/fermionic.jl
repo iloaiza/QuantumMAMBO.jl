@@ -31,6 +31,22 @@ function cartan_2b_to_tbt(C :: cartan_2b)
 	return tbt
 end
 
+function cartan_mat_to_2b(mat :: Array, spin_orb=false)
+	#transforms λij matrix corresponding to two-electron CSA polynomial into cartan_2b structure
+	N = size(mat)[1]
+	λs = zeros(cartan_2b_num_params(N))
+
+	idx = 1
+	for i in 1:N
+		for j in 1:i
+			λs[idx] = (mat[i,j] + mat[j,i])/2
+			idx += 1
+		end
+	end
+
+	return cartan_2b(spin_orb, λs, N)
+end
+
 function cartan_2b_num_params(N)
 	return Int(N*(N+1)/2)
 end
@@ -170,6 +186,7 @@ function obt_to_tbt(obt)
 end
 
 function tbt_orb_to_so(tbt)
+	#transform two-body tensor in spacial-orbitals to spin-orbitals
     n = size(tbt)[1]
     n_qubit = 2n
 
@@ -191,7 +208,32 @@ function tbt_orb_to_so(tbt)
     return tbt_so
 end
 
+function tbt_so_to_orb(tbt_so; tiny = 1e-16)
+	#transform two-body tensor in spin-orbitals to spacial-orbitals, will fail if non-symmetric
+	n_so = size(tbt_so)[1]
+	n = Int(n_so/2)
+
+	tbt = zeros(n,n,n,n)
+	for i1 in 1:n
+        for i2 in 1:n
+            for i3 in 1:n
+                for i4 in 1:n
+                    tbt[i1,i2,i3,i4] = tbt_so[2i1,2i2,2i3,2i4]
+                end
+            end
+        end
+    end
+
+    if sum(abs2.(tbt_so - tbt_orb_to_so(tbt))) > tiny
+    	@show sum(abs2.(tbt_so - tbt_orb_to_so(tbt)))
+    	error("Failed converting spin-orbital two-body tensor into spacial orbitals, non-symmetric!")
+    end
+
+    return tbt
+end
+
 function obt_orb_to_so(obt)
+	#transform one-body tensor in spacial-orbitals to spin-orbitals
     n = size(obt)[1]
     n_qubit = 2n
 
@@ -205,6 +247,26 @@ function obt_orb_to_so(obt)
     end
 
     return obt_so
+end
+
+function obt_so_to_orb(obt_so; tiny=1e-16)
+	#transform one-body tensor in spin-orbitals to spacial-orbitals, will fail if non-symmetric
+    n_so = size(obt_so)[1]
+    n = Int(n_so/2)
+
+    obt = zeros(n,n)
+    for i1 in 1:n
+        for i2 in 1:n
+            obt[i1,i2] = obt_so[2i1,2i2]
+        end
+    end
+
+	if sum(abs2.(obt_so - obt_orb_to_so(obt))) > tiny
+		@show sum(abs2.(obt_so - tbt_orb_to_so(obt)))
+    	error("Failed converting spin-orbital two-body tensor into spacial orbitals, non-symmetric!")
+    end
+
+    return obt
 end
 
 function mbt_orb_to_so(mbt)
@@ -481,8 +543,8 @@ function F_OP(obt :: Array{Float64, 2}, spin_orb=false)
 	return F_OP(([0], obt), spin_orb)
 end
 
-function to_OBF(obt :: Array{Float64, 2})
-	return to_OBF(F_OP(obt))
+function to_OBF(obt :: Array{Float64, 2}, spin_orb=false)
+	return to_OBF(F_OP(obt, spin_orb))
 end
 
 function F_OP_to_eri(F :: F_OP)
@@ -495,16 +557,43 @@ function F_OP_to_eri(F :: F_OP)
 	return obt, 2*tbt
 end
 
-function eri_to_F_OP(obt, tbt, hconst :: Array = [0])
+function eri_to_F_OP(obt, tbt, hconst :: Array = [0]; spin_orb=false)
 	#transform electronic repulsion integrals into fermionic operator
 	N = size(obt)[1]
 
 	mbts = (hconst, obt - sum([0.5*tbt[:,k,k,:] for k in 1:N]), 0.5*tbt)
 	
 	
-	return F_OP(mbts)
+	return F_OP(mbts, spin_orb)
 end
 
 function eri_to_F_OP(obt, tbt, hconst :: Number)
 	return eri_to_F_OP(obt, tbt, [hconst])
 end
+
+function to_CSA_SD(F :: F_FRAG)
+	#transforms fragment into CSA_SD fragment
+	if F.TECH == THC()
+		error("Cannot transform THC fragment into CSA_SD, different number of unitaries")
+	elseif F.TECH == CSA_SD()
+		return F
+	elseif F.TECH == CSA()
+		C = cartan_SD(F.spin_orb, zeros(F.N), F.C.λ, F.N)
+		return F_FRAG(F.nUs, F.U, CSA_SD(), C, F.N, F.spin_orb, F.coeff, F.has_coeff)
+	elseif F.TECH == DF()
+		Cmat = zeros(F.N, F.N)
+		for i in 1:F.N
+			for j in 1:F.N
+				Cmat[i,j] = F.C.λ[i] * F.C.λ[j]
+			end
+		end
+		C2b = cartan_mat_to_2b(Cmat, F.spin_orb)
+		C = cartan_SD(F.spin_orb, zeros(F.N), C2b.λ, F.N)
+		return F_FRAG(F.nUs, F.U, CSA_SD(), C, F.N, F.spin_orb, F.coeff, F.has_coeff)
+	else
+		error("Transformation into CSA_SD frag not defined for fragment type $(F.TECH)")
+	end
+end
+
+
+
