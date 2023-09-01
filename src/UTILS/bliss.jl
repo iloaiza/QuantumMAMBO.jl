@@ -1,4 +1,4 @@
-#routines for finding block-invariant symmetry shifts (BLISS), see Ref.[2] in README for more information
+#routines for finding fluid-body symmetry shifts
 function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)+1) - 1)/2), spin_orb=false)
 	#builds S symmetry shift corresponding to S = s0+s1+s2
 	obt = zeros(N, N)
@@ -27,7 +27,6 @@ function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)
 
 	return F_OP((s0, s1, s2), spin_orb)
 end
-
 
 function quadratic_bliss_params_to_F_OP(u1, u2, ovec, η, N)
 	
@@ -159,7 +158,8 @@ function quadratic_ss(F :: F_OP, η)
 end
 
 
-function quadratic_bliss(F, η; verbose=false)
+
+function quadratic_bliss(F, η)
 	hij = F.mbts[2]
 	gijkl = F.mbts[3]
 
@@ -234,7 +234,7 @@ function quadratic_bliss(F, η; verbose=false)
 	u1 = λ1 + λ2*u2 + λ3*Osum
 	
 
-	Sconst = [-u1*η - u2*(η^2)]
+	Sconst = [-η - η^2]
 
 	Sobt = zeros(F.N, F.N)
 	Tobt = zeros(F.N, F.N)
@@ -262,15 +262,12 @@ function quadratic_bliss(F, η; verbose=false)
 	T = F_OP(([0], Tobt, Ttbt))
 
 	FT = F - S - T
-	if verbose
-		println("Finished quadratic BLISS routine, showing initial and final 2-norms...")
-		@show PAULI_L2(F)
-		@show PAULI_L2(FT)
-	end
+	@show PAULI_L2(FT)
+	@show PAULI_L1(FT)
+	
 
 	return FT
 end
-
 
 function bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
 	if SAVELOAD
@@ -771,13 +768,17 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     t_opt = value.(t)
     o_opt = value.(omat)
     
-    O = zeros(F.N,F.N)
-    for i in 1:F.N
-    	for j in 1:F.N
-    		O[i,j] = o_opt[T_dict[i,j]]
+    idx=1
+    O=zeros(F.N,F.N)
+    for i=1:F.N
+    	for j=1:F.N
+    		O[i,j]=o_opt[idx]
+    		idx+=1
     	end
     end
-    
+    O=(O+O')/2	
+        
+        
     Ne,Ne2 = symmetry_builder(F)
     
     
@@ -797,6 +798,8 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     s1 = F_OP(([0],s1_obt))
     
     F_new=F - s1-s2
+     				
+    
     println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
     return F_new, s1+s2
 end
