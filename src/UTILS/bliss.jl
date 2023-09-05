@@ -541,8 +541,7 @@ function hubbard_bliss_optimizer(F :: F_OP, η, sz, s2; verbose=true, SAVELOAD =
 	return F - S
 end
 
-function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
-	@warn "Linear programming function under construction, not working!"
+function bliss_linprog(F :: F_OP, η; model="highs", verbose=false)
 	if F.spin_orb
 		error("BLISS not defined for spin-orb=true!")
 	end
@@ -576,8 +575,6 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
 
     @objective(L1_OPT, Min, sum(obt)+sum(tbt1)+sum(tbt2))
     
-
-	
 
     obt_corr = ob_correction(F)
     #1-body 1-norm
@@ -797,10 +794,11 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
     s1_obt = t_opt[2]*Ne.mbts[2] - 2η*O
     s1 = F_OP(([0],s1_obt))
     
-    F_new=F - s1-s2
-     				
+    F_new = F - s1 - s2
+    if verbose == true
+    	println("Finished BLISS optimization, L1 cost reduced from $(PAULI_L1(F)) to $(PAULI_L1(F_new))")
+    end
     
-    println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
     return F_new, s1+s2
 end
 
