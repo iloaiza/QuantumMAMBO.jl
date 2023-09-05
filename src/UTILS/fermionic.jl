@@ -162,7 +162,7 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
 	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
 end
 
-function obt_to_tbt(obt)
+function obt_to_tbt(obt, imag_tol = 1e-8)
 	## transform one-body tensor into two-body tensor
     ## requires obt to be in spin-orbitals!
     
@@ -182,7 +182,11 @@ function obt_to_tbt(obt)
 
     @einsum rotated_tbt[a,b,c,d] = Uobt[a,l] * conj(Uobt[b,l]) * Uobt[c,l] * conj(Uobt[d,l]) * tbt[l,l,l,l]
     
-    return rotated_tbt
+    if sum(abs.(imag.(rotated_tbt))) < imag_tol
+    	return real.(rotated_tbt)
+    else
+    	return rotated_tbt
+    end
 end
 
 function tbt_orb_to_so(tbt)

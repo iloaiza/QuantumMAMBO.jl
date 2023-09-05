@@ -1,7 +1,7 @@
 # OPTIONS FOR WHAT ROUTINES SHOULD BE RAN
-DO_CSA = true #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
+DO_CSA = false #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
 DO_DF = true #perform Double-Factorization (DF) decomposition of Hamiltonian
-DO_ΔE = false #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
+DO_ΔE = true #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
 FOCK_BOUND = true #obtain lower bound for ΔE/2 using Fock matrix, can be done when ΔE is not accessible!
 DO_AC = true #do anticommuting grouping technique
 DO_OO = false #do orbital optimization routine
@@ -63,7 +63,7 @@ end
 if BLISS
 	println("\n\n Starting block-invariant symmetry shift (BLISS) routine...")
 	println("BLISS optimization...")
-	H_bliss,_=bliss_linprog(H, η)
+	H_bliss,_ = bliss_linprog(H, η)
 	
 	println("Running 1-norm routines...")
 	@time H_bliss = bliss_optimizer(H, η, verbose=verbose, SAVENAME=FILENAME*"_BLISS.h5")
