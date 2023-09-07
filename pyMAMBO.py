@@ -38,7 +38,7 @@ def BLISS(H:FermionOperator, num_elecs, do_T = True, ret_mambo = False, verbose=
 	#these correspond to Eqs. 6 and 8 of Ref.[2] in the README
 	Hmambo = mambo.OF_to_F_OP(H)
 	if do_T:
-		H_new = mambo.bliss_optimizer(Hmambo, num_elecs, verbose=verbose, SAVELOAD=do_save)
+		H_new, _ = mambo.bliss_linprog(Hmambo, num_elecs)
 	else:
 		H_new, shifts = mambo.symmetry_treatment(Hmambo, verbose=verbose, SAVELOAD=do_save)
 
