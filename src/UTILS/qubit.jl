@@ -41,8 +41,10 @@ function majorana_pair_to_pauli(i, j, σ, n_qubits, transformation = F2Q_map)
 end
 
 function single_majorana_to_pauli(p, m, n_qubits, transformation = F2Q_map)
+	# p: spin-orbital index
+	# m = 0,1 for different Majorana type
 	if transformation != "jw" && transformation != "jordan-wigner"
-		error("γiσ0*γjσ1 to Pauli word transformation not defined for $transformation!")
+		error("γpm to Pauli word transformation not defined for $transformation!")
 	end
 
 	bin_vec = zeros(Bool, 2*n_qubits)
