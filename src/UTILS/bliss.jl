@@ -392,6 +392,26 @@ function Sz_builder(n_qubit)
 	return Sz
 end
 
+function Splus_builder(n_qubit)
+	Splus = zeros(n_qubit, n_qubit)
+	n_orbs = Int(n_qubit/2)
+	for i in 1:n_orbs
+		Splus[2i-1,2i] = 0.5
+	end
+
+	return Splus
+end
+
+function Sminus_builder(n_qubit)
+	Sminus = zeros(n_qubit, n_qubit)
+	n_orbs = Int(n_qubit/2)
+	for i in 1:n_orbs
+		Sminus[2i,2i-1] = 0.5
+	end
+
+	return Sminus
+end
+
 function S2_builder(n_qubit)
 	S2_tbt = zeros(n_qubit,n_qubit,n_qubit,n_qubit)
 	n_orbs = Int(n_qubit/2)
@@ -454,6 +474,73 @@ function hubbard_bliss_sym_params_to_F_OP(ovec, pvec, tvec, η, sz, s2, N = Int(
 			idx += 1
 			P_obt[i,j] += pvec[idx]
 			P_obt[j,i] += pvec[idx]
+		end
+	end
+
+	s0 = [-tvec[1]*(η^2) - tvec[2]*η - tvec[3]*sz - tvec[4]*(sz^2) - tvec[5]*s2]
+	
+	s1 = tvec[2]*collect(Diagonal(ones(N))) - η*O_obt - sz*P_obt - tvec[3]*Sz
+
+	s2 = zeros(N,N,N,N)
+	for i in 1:N
+		for j in 1:N
+			s2[i,i,j,j] += tvec[1]
+			for k in 1:N
+				s2[i,j,k,k] += 0.5*O_obt[i,j]
+				s2[k,k,i,j] += 0.5*O_obt[i,j]
+				for l in 1:N
+					s2[i,j,k,l] += tvec[4] * Sz[i,j] * Sz[k,l]
+					s2[i,j,k,l] += tvec[5] * S2[i,j,k,l]
+					s2[i,j,k,l] += P_obt[i,j] * Sz[k,l]
+				end
+			end
+		end
+	end
+
+	return F_OP((s0, s1, s2), true)
+end
+
+function full_hubbard_bliss_sym_params_to_F_OP(ovec, pvec, qvec, rvec, tvec, η, sz, s2, sp, sm, N = Int((sqrt(8*length(ovec)+1) - 1)/2), Sz = Sz_builder(N), S2=S2_builder(N))
+	#builds S symmetry shift corresponding to S = s0+s1+s2
+	#includes Sz and Sˆ2 contributions, considers spin-orb=true
+	#also includes splus and sminus contributions
+	O_obt = zeros(N, N)
+	idx = 0
+	for i in 1:N
+		for j in 1:i
+			idx += 1
+			O_obt[i,j] += ovec[idx]
+			O_obt[j,i] += ovec[idx]
+		end
+	end
+
+	P_obt = zeros(N, N)
+	idx = 0
+	for i in 1:N
+		for j in 1:i
+			idx += 1
+			P_obt[i,j] += pvec[idx]
+			P_obt[j,i] += pvec[idx]
+		end
+	end
+
+	Q_obt = zeros(N, N)
+	idx = 0
+	for i in 1:N
+		for j in 1:i
+			idx += 1
+			Q_obt[i,j] += qvec[idx]
+			Q_obt[j,i] += qvec[idx]
+		end
+	end
+
+	R_obt = zeros(N, N)
+	idx = 0
+	for i in 1:N
+		for j in 1:i
+			idx += 1
+			R_obt[i,j] += rvec[idx]
+			R_obt[j,i] += rvec[idx]
 		end
 	end
 
