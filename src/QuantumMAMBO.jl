@@ -35,6 +35,8 @@ module QuantumMAMBO
 
 	include(UTILS_dir * "planted.jl")
 	include(UTILS_dir * "wrappers.jl")
+	include(UTILS_dir * "hubbard.jl")
+
 
 	if !(@isdefined SAVING_LOADED) && SAVING #only include saving file one time if saving option is on
 		include(UTILS_dir * "saving.jl")
