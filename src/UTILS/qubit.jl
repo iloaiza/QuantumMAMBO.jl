@@ -62,13 +62,7 @@ function single_majorana_to_pauli(p, m, n_qubits, transformation = F2Q_map)
 		bin_vec[p+n_qubits] = 1
 	end
 
-	if p%2 == 0
-		phase = -1
-	else
-		phase = 1
-	end
-
-	return pauli_word(bin_vec, phase)
+	return pauli_word(bin_vec, 1)
 end
 
 function Q_OP(M :: M_OP, transformation = F2Q_map, tol = PAULI_TOL)
@@ -394,15 +388,23 @@ function FC_group(F :: F_OP; ret_ops = false, verbose=false)
 end
 
 function simplify(Q :: Q_OP)
+	ID = pauli_word(zeros(Bool, 2*Q.N))
+	id_coeff = Q.id_coeff
 	pws = pauli_word[]
 	for i in 1:Q.n_paulis
 		pw_curr = Q.paulis[i]
 		already_included = false
-		for counted_pw in pws
-			if pw_curr.bits == counted_pw.bits
-				already_included = true
-				counted_pw.coeff += pw_curr.coeff
-				break
+		if pw_curr.bits == ID.bits
+			already_included = true
+			id_coeff += pw_curr.coeff
+		end
+		if already_included == false
+			for counted_pw in pws
+				if pw_curr.bits == counted_pw.bits
+					already_included = true
+					counted_pw.coeff += pw_curr.coeff
+					break
+				end
 			end
 		end
 		if !already_included
@@ -416,7 +418,7 @@ function simplify(Q :: Q_OP)
 		end
 	end
 
-	return Q_OP(Q.N, length(pws), Q.id_coeff, pws)
+	return Q_OP(Q.N, length(pws), id_coeff, pws)
 end
 
 import Base.+
