@@ -1,9 +1,8 @@
 [deps]
 
 [pip.deps]
-numpy= ""
-h5py = ""
 pyscf = ""
+numpy = ""
 sympy = ""
 openfermion = ""
 openfermionpyscf = ""

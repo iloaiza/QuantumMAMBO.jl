@@ -1,10 +1,10 @@
 # qubit utils
-function Q_OP(F :: F_OP, transformation = F2Q_map, tol = PAULI_TOL)
-	return Q_OP(M_OP(F), transformation)
+function Q_OP(F :: F_OP; transformation = F2Q_map, tol = PAULI_TOL)
+	return Q_OP(M_OP(F), transformation=transformation, tol=tol)
 end
 
-function Q_OP(frag :: F_FRAG, transformation = F2Q_map, tol = PAULI_TOL)
-	return  Q_OP(F_OP(frag), transformation, tol)
+function Q_OP(frag :: F_FRAG; transformation = F2Q_map, tol = PAULI_TOL)
+	return  Q_OP(F_OP(frag), transformation=transformation, tol=tol)
 end
 
 function majorana_pair_to_pauli(i, j, σ, n_qubits, transformation = F2Q_map)
@@ -65,7 +65,7 @@ function single_majorana_to_pauli(p, m, n_qubits, transformation = F2Q_map)
 	return pauli_word(bin_vec, 1)
 end
 
-function Q_OP(M :: M_OP, transformation = F2Q_map, tol = PAULI_TOL)
+function Q_OP(M :: M_OP; transformation = F2Q_map, tol = PAULI_TOL)
 	if M.spin_orb
 		N = M.N
 	else
@@ -497,23 +497,33 @@ function commutator(Q1 :: Q_OP, Q2 :: Q_OP)
 	return Q1*Q2 - Q2*Q1
 end
 
-#= DEPRECATED IMPLEMENTATION, REQUIRES COSTLY TYPE CONVERSIONS. MORE EFFICIENT IMPLEMENTATION USES OPENFERMION
-function to_matrix(Q :: Q_OP; do_sparse = true)
-	mat = Q.id_coeff * sparse(Diagonal(ones(Complex,2^(Q.N)))) |> SparseMatrixCSC{Complex, Int64}
+function to_matrix(Q :: Q_OP; drop = true, droptol = MAT_DROP_TOL)
+	#drop = true will drop all values in the final matrix with absolute value smaller than droptol
+	dims = 2^(Q.N)
+	is = collect(1:dims)
+	js = copy(is)
+	vals = Q.id_coeff * ones(dims)
+	sizehint!(is, dims * (Q.n_paulis + 1))
+	sizehint!(js, dims * (Q.n_paulis + 1))
+	sizehint!(vals, dims * (Q.n_paulis + 1))
 	
+	dims_arr = copy(is)
 	for i in 1:Q.n_paulis
-		mat = mat + to_matrix(Q.paulis[i]) |> SparseMatrixCSC{Complex, Int64}
+		permmat = to_matrix(Q.paulis[i], is_perm=true)
+		py_mat = py_sparse_import(of.get_sparse_operator(to_OF(Q.paulis[i]), n_qubits=Q.N))
+		append!(is, dims_arr)
+		append!(js, permmat.perm)
+		append!(vals, permmat.vals)
 	end
 
-	if do_sparse
-		return mat
-	else
-		return collect(mat)
+	COO_mat = SparseMatrixCOO(is, js, vals, dims, dims)
+	CSC_mat = SparseMatrixCSC(COO_mat)
+
+	if drop
+		droptol!(CSC_mat, droptol)
 	end
-end
-# =#
-function to_matrix(Q :: Q_OP)
-	return py_sparse_import(of.get_sparse_operator(to_OF(Q), n_qubits = Q.N))
+
+	return CSC_mat
 end
 
 function to_matrix(F :: F_OP)

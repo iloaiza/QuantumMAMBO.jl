@@ -32,10 +32,10 @@ function L1(F_arr :: Array{F_FRAG}; debug=false, count=true)
 	return sum(L1.(F_arr, debug=debug, count=count))
 end
 
-function SQRT_L1(F :: F_OP; count = false)
+function SQRT_L1(F :: F_OP; count = false, tol=1e-3)
 	#return minimal 1-norm for fermionic operator, does not scale well!
-	of_OP = qubit_transform(to_OF(F))
-	range = OF_qubit_op_range(of_OP)
+	mat = to_matrix(F)
+	range = mat_range(mat, tol=tol)
 	spec_range = (range[2] - range[1])/2
 
 	if count

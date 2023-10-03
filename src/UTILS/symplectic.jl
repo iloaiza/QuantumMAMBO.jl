@@ -15,22 +15,39 @@ function pauli_bit(i :: Int64)
     end
 end
 
-function pauli_matrix(bit1 :: Bool, bit2 :: Bool)
+function pauli_matrix(bit1 :: Bool, bit2 :: Bool; is_perm = false)
+    #is_perm=true return matrix in PermMatrix format, efficient for kronecker products
     if bit1
         if bit2
-            return sparse([0 -1im; 1im 0])
+            if is_perm
+                return PermMatrix([2,1], [-1im,1im])
+            else
+                return sparse([0 -1im; 1im 0])
+            end
         else
-            return sparse([0im 1;1 0])
+            if is_perm
+                return PermMatrix([2,1], [1,1])
+            else
+                return sparse([0im 1;1 0])
+            end
         end
     elseif bit2
-        return sparse([1 0im;0 -1])
+        if is_perm
+            return PermMatrix([1,2], [1,-1])
+        else
+            return sparse([1 0im;0 -1])
+        end
     else
-        return sparse([1 0im;0 1])
+        if is_perm
+            return PermMatrix([1,2], [1,1])
+        else
+            return sparse([1 0im;0 1])
+        end
     end
 end
 
-function pauli_matrix(pb :: pauli_bit)
-    return pauli_matrix(pb.bin...)
+function pauli_matrix(pb :: pauli_bit; is_perm = false)
+    return pauli_matrix(pb.bin...; is_perm = is_perm)
 end
 
 mutable struct pauli_word
@@ -229,8 +246,8 @@ function augment_qubits(pw :: pauli_word, Nobj :: Int64)
     return pauli_word(bits_arr, Nobj, pw.coeff)
 end
 
-function to_matrix(pw :: pauli_word)
-    mats = pauli_matrix.(pw.bits)
+function to_matrix(pw :: pauli_word; is_perm = false)
+    mats = pauli_matrix.(pw.bits; is_perm = is_perm)
 
     return pw.coeff * kron(mats...)
 end

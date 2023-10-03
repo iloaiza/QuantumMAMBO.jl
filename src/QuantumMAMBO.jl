@@ -1,5 +1,5 @@
 module QuantumMAMBO
-	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays
+	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse
 
 	src_dir = @__DIR__
 	UTILS_dir = src_dir * "/UTILS/"

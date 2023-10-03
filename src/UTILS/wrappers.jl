@@ -181,7 +181,7 @@ function LOCALIZED_XYZ_HAM(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5",
 	return Hhf, Hfb, η
 end
 
-function L1_ROUTINE(H, name; prefix="", dE = true)
+function L1_ROUTINE(H, name; prefix="", dE = true, dE_tol = 1e-1)
 	#dE: whether full Hamiltonian is diagonalized for minimum 1-norm
 	#runs L1 routine for H, returns array of 1-norms Λ and unitary count Us as:
 	#Λ = [ΔE, Pauli, AC, DF, MHC]
@@ -196,7 +196,7 @@ function L1_ROUTINE(H, name; prefix="", dE = true)
 			println("Found saved dE for file $name")
 			λ_min = read(fid,"dE" * prefix)
 		else
-			@time λ_min = SQRT_L1(H)
+			@time λ_min = SQRT_L1(H, tol=dE_tol)
 			fid["dE" * prefix] = λ_min
 		end
 		close(fid)

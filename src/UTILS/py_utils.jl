@@ -147,15 +147,12 @@ function py_sparse_import(py_sparse_mat; imag_tol=1e-14)
 	return sparse_mat
 end
 
-function OF_qubit_op_range(op_qubit, n_qubit=pyconvert(Int64,of.count_qubits(op_qubit)); imag_tol=1e-14, ncv=minimum([50,2^n_qubit]), tol=1e-3, debug=false)
-	#Calculates maximum and minimum eigenvalues for qubit operator within tolerance tol
+function mat_range(sparse_op;ncv=minimum([50,size(sparse_op)[1]]), tol=1e-3)
+	#Calculates maximum and minimum eigenvalues for matrix within tolerance tol
 	#uses efficient Arpack Krylov-space routine eigs
-	op_py_sparse_mat = of.qubit_operator_sparse(op_qubit)
-	sparse_op = py_sparse_import(op_py_sparse_mat, imag_tol=imag_tol)
-
-	if n_qubit >= 2
-		E_max,_ = eigs(sparse_op, nev=1, which=:LR, maxiter = 500, tol=tol, ncv=ncv)
-		E_min,_ = eigs(sparse_op, nev=1, which=:SR, maxiter = 500, tol=tol, ncv=ncv)
+	if size(sparse_op)[1] >= 4
+		E_max,_ = Arpack.eigs(sparse_op, nev=1, which=:LR, maxiter = 500, tol=tol, ncv=ncv)
+		E_min,_ = Arpack.eigs(sparse_op, nev=1, which=:SR, maxiter = 500, tol=tol, ncv=ncv)
 	else
 		E,_ = eigen(collect(sparse_op))
 		E = real.(E)
@@ -164,6 +161,15 @@ function OF_qubit_op_range(op_qubit, n_qubit=pyconvert(Int64,of.count_qubits(op_
 	end
 	E_range = real.([E_min[1], E_max[1]])
 	
+	return E_range
+end
+
+function OF_qubit_op_range(op_qubit, n_qubit=pyconvert(Int64,of.count_qubits(op_qubit)); imag_tol=1e-14, ncv=minimum([50,2^n_qubit]), tol=1e-3, debug=false)
+	#Calculates maximum and minimum eigenvalues for qubit operator within tolerance tol
+	#uses efficient Arpack Krylov-space routine eigs
+	op_py_sparse_mat = of.qubit_operator_sparse(op_qubit)
+	sparse_op = py_sparse_import(op_py_sparse_mat, imag_tol=imag_tol)
+
 	if debug
 		E, _ = eigen(collect(sparse_op))
 		E = real.(E)
@@ -172,8 +178,8 @@ function OF_qubit_op_range(op_qubit, n_qubit=pyconvert(Int64,of.count_qubits(op_
 		@show minimum(E), minimum(of_eigen)
 		@show maximum(E), maximum(of_eigen)
 	end	
-	
-	return E_range
+
+	return mat_range(sparse_op, ncv=ncv, tol=tol, debug=debug)
 end
 
 function OF_to_F_OP(H, spin_orb=false)
