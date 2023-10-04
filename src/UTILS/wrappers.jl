@@ -187,7 +187,7 @@ function L1_ROUTINE(H, name; prefix="", dE = true, dE_tol = 1e-1)
 	#Λ = [ΔE, Pauli, AC, DF, MHC]
 	#Us = [Pauli, AC, DF, MHC]
 
-	Λ = zeros(5)
+	Λ = zeros(6)
 	Us = zeros(Int64, 4)
 	println("Obtaining 1-norm lower bound")
 	if dE
@@ -203,6 +203,9 @@ function L1_ROUTINE(H, name; prefix="", dE = true, dE_tol = 1e-1)
 
 		Λ[1] = λ_min
 	end
+
+	println("Obtaining Fock bound")
+	Λ[6] = Fock_bound(H)
 	
 	println("\n\nCalculating 1-norms...")
 	println("1-body:")
