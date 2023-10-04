@@ -503,9 +503,9 @@ function to_matrix(Q :: Q_OP; drop = true, droptol = MAT_DROP_TOL)
 	is = collect(1:dims)
 	js = copy(is)
 	vals = Q.id_coeff * ones(dims)
-	sizehint!(is, Q.N * (Q.n_paulis + 1))
-	sizehint!(js, Q.N * (Q.n_paulis + 1))
-	sizehint!(vals, Q.N * (Q.n_paulis + 1))
+	sizehint!(is, dims * (Q.n_paulis + 1))
+	sizehint!(js, dims * (Q.n_paulis + 1))
+	sizehint!(vals, dims * (Q.n_paulis + 1))
 	
 	dims_arr = copy(is)
 	for i in 1:Q.n_paulis
