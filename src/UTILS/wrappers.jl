@@ -196,7 +196,7 @@ function L1_ROUTINE(H, name; prefix="", dE = true, dE_tol = 1e-1)
 			println("Found saved dE for file $name")
 			λ_min = read(fid,"dE" * prefix)
 		else
-			@time λ_min = SQRT_L1(H, tol=dE_tol)
+			@time λ_min = SQRT_L1(H, tol=dE_tol, verbose=true)
 			fid["dE" * prefix] = λ_min
 		end
 		close(fid)
