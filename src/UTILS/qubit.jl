@@ -499,6 +499,24 @@ end
 
 function to_matrix(Q :: Q_OP; drop = true, droptol = MAT_DROP_TOL)
 	#drop = true will drop all values in the final matrix with absolute value smaller than droptol
+	dims = 2^Q.N
+	mat = sparse(Q.id_coeff * Diagonal(ones(Complex, dims)))
+
+	for i in 1:Q.n_paulis
+		pauli_mat = to_matrix(Q.paulis[i], is_perm=true) |> SparseMatrixCSC{ComplexF64, Int64}
+		mat += pauli_mat
+	end
+
+	if drop == true
+		droptol!(mat, droptol)
+	end
+
+	return mat
+end
+
+function to_matrix_COO(Q :: Q_OP; drop = true, droptol = MAT_DROP_TOL)
+	#drop = true will drop all values in the final matrix with absolute value smaller than droptol
+	#same as to_matrix but using COO sparse format. More efficient for large matrices if there's enough memory
 	dims = 2^(Q.N)
 	is = collect(1:dims)
 	js = copy(is)
