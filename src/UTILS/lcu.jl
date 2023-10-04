@@ -32,10 +32,17 @@ function L1(F_arr :: Array{F_FRAG}; debug=false, count=true)
 	return sum(L1.(F_arr, debug=debug, count=count))
 end
 
-function SQRT_L1(F :: F_OP; count = false, tol=1e-3)
+function SQRT_L1(F :: F_OP; count = false, tol=1e-3, verbose=false)
 	#return minimal 1-norm for fermionic operator, does not scale well!
-	mat = to_matrix(F)
-	range = mat_range(mat, tol=tol)
+	if verbose == false
+		mat = to_matrix(F)
+		range = mat_range(mat, tol=tol)
+	else
+		println("Building sparse matrix...")
+		@time mat = to_matrix(F)
+		println("Obtaining matrix spectral range...")
+		@time range = mat_range(mat, tol=tol)
+	end
 	spec_range = (range[2] - range[1])/2
 
 	if count
