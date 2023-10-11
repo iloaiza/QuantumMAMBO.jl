@@ -389,7 +389,7 @@ function Sz_builder(n_qubit)
 		end
 	end
 
-	return Sz
+	return Sz/2
 end
 
 function Splus_builder(n_qubit)
@@ -479,7 +479,7 @@ function hubbard_bliss_sym_params_to_F_OP(ovec, pvec, tvec, η, sz, s2, N = Int(
 
 	s0 = [-tvec[1]*(η^2) - tvec[2]*η - tvec[3]*sz - tvec[4]*(sz^2) - tvec[5]*s2]
 	
-	s1 = tvec[2]*collect(Diagonal(ones(N))) - η*O_obt - sz*P_obt - tvec[3]*Sz
+	s1 = tvec[2]*collect(Diagonal(ones(N))) - η*O_obt - sz*P_obt + tvec[3]*Sz
 
 	s2 = zeros(N,N,N,N)
 	for i in 1:N
