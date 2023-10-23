@@ -88,6 +88,10 @@ function pauli_num_from_bit(p :: pauli_bit)
     end
 end
 
+function pauli_num_from_binary(bit_1 :: Bool, bit_2 :: Bool)
+    return pauli_num_from_bit(pauli_bit((bit_1, bit_2)))
+end
+
 function ϵ_pauli(i,j)
     #return what k corresponds for Pauli multiplication and sign
     if i == j
@@ -196,6 +200,20 @@ function pw_to_bin_vec(pw)
 
     return b_vec
 end
+
+function pw_to_int_vec(pw)
+    #returns pauli word as integer vector, where e.g. Z1*X2*Y4*Y5 = [3,1,0,2,2]
+    bin_vec = pw_to_bin_vec(pw)
+    n_qubits = pw.size
+
+    int_vec = zeros(Int, n_qubits)
+    for i in 1:n_qubits
+        int_vec[i] = pauli_num_from_binary(bin_vec[i], bin_vec[i+n_qubits])
+    end
+
+    return int_vec
+end
+
 
 function pw_to_bin_bra(pw)
     #bra already has inverted indices so bra*vec can be used to check anticommutativity
