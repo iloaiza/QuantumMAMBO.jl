@@ -51,7 +51,7 @@ class controlled_Qija(SelectOracle):
         self.j_register = spacial_orbital_sel_register(num_spacial_orbs, j_name)
         self.spin_register = spin_sel_register(spin_name)
         self.ctl_register = ctl_reg
-        self.target_register = cft.Registers([cft.Register(name=target_name, shape=num_spacial_orbs+1)])
+        self.target_register = cft.Registers([cft.Register(target_name, num_spacial_orbs+1)])
 
     
     @property 
@@ -228,7 +228,7 @@ def sparse_select(V_reg, i_reg, j_reg, k_reg, l_reg, s1_reg, s2_reg, ctl_reg, tg
     num_spacial_orbs = i_reg.iteration_length
     Qija = controlled_Qija(num_spacial_orbs, i_reg.name, j_reg.name, s1_reg.name, ctl_reg, tgt_name)
     
-    and_ctl_reg = cft.Registers([ctl_reg[0], V_reg[0]])
+    and_ctl_reg = merge_registers(ctl_reg, V_reg)
     and_targ_reg = cft.Registers.build(and_targ=1)
     
     and_op = cirq.CCNOT.on(*get_qubits(and_ctl_reg), *get_qubits(and_targ_reg))
@@ -567,7 +567,7 @@ class SingleFactorizedPrepare(cft.algos.select_and_prepare.PrepareOracle):
 
 @cirq.value_equality
 @attr.frozen
-class SOTASparsePrepare(cft.algos.select_and_prepare.PrepareOracle):
+class Prepare_Sparse_SOTA(cft.algos.select_and_prepare.PrepareOracle):
     i_register : cft.SelectionRegister #spacial orbital registers
     j_register : cft.SelectionRegister #spacial orbital registers
     k_register : cft.SelectionRegister #spacial orbital registers
@@ -580,11 +580,12 @@ class SOTASparsePrepare(cft.algos.select_and_prepare.PrepareOracle):
     alt: NDArray[np.int_]
     keep: NDArray[np.int_]
     mu: int
+    N : int #total number of spacial orbitals, hij has dimension NxN
     
     @classmethod
     def build(
         cls, hij : NDArray[np.float], gijkl: NDArray[np.float], *, probability_epsilon: float = 1.0e-5, truncation_threshold:float = 1.0e-5
-    ) -> 'SOTASparsePrepare':
+    ) -> 'Prepare_Sparse_SOTA':
 
         N = np.shape(hij)[0]
         i_reg = cft.SelectionRegister("orb_i", ceil(log2(N)), N)
@@ -638,7 +639,7 @@ class SOTASparsePrepare(cft.algos.select_and_prepare.PrepareOracle):
             lcu_coefficients=np.abs(coeffs), epsilon=probability_epsilon
         )
         
-        return SOTASparsePrepare(
+        return Prepare_Sparse_SOTA(
             i_register = i_reg,
             j_register = j_reg,
             k_register = k_reg,
@@ -650,7 +651,8 @@ class SOTASparsePrepare(cft.algos.select_and_prepare.PrepareOracle):
             idx_arr = idx_arr,
             alt=np.array(alt),
             keep=np.array(keep),
-            mu=mu)
+            mu=mu,
+            N=N)
 
     @cached_property
     def selection_registers(self) -> cft.SelectionRegisters:
@@ -688,9 +690,8 @@ class SOTASparsePrepare(cft.algos.select_and_prepare.PrepareOracle):
 
     @cached_property
     def alternates_bitsize(self) -> int:
-        N = self.i_register.total_bits()
-        return 4*N+1
-
+        return 4*ceil(log2(self.N)) + 1
+        
     @cached_property
     def keep_bitsize(self) -> int:
         return self.mu
