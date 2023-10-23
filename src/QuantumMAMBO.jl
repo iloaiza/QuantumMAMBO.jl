@@ -20,6 +20,7 @@ module QuantumMAMBO
 	include(UTILS_dir * "lcu.jl")
 	function __init__()
 		include(UTILS_dir * "py_utils.jl")
+		include(UTILS_dir * "circuits.jl")
 	end
 	include(UTILS_dir * "majorana.jl")
 	include(UTILS_dir * "qubit.jl")
