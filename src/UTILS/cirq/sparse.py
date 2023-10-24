@@ -108,8 +108,8 @@ class controlled_Qija(SelectOracle):
 class TargetedPrepare(cft.StatePreparationAliasSampling):
     #same as StatePreparationAliasSampling but added ability to array of selection registers for T-counting
     selection_registers: cft.SelectionRegisters
-    alt: NDArray[np.int_]
-    keep: NDArray[np.int_]
+    alt: NDArray[int]
+    keep: NDArray[int]
     mu: int
         
     @classmethod
@@ -313,15 +313,15 @@ class FactorizedGijlSubprepare(cft.algos.select_and_prepare.PrepareOracle):
     i_register : cft.SelectionRegister
     j_register : cft.SelectionRegister
     l_register : cft.SelectionRegister
-    alts_l: NDArray[np.int_] #first coordinate for l, second for (i,j)
-    keeps_l: NDArray[np.int_] #first coordinate for l, second for (i,j)
+    alts_l: NDArray[int] #first coordinate for l, second for (i,j)
+    keeps_l: NDArray[int] #first coordinate for l, second for (i,j)
     mu: int
     L: int
 
 
     @classmethod
     def from_gijl(
-        cls, gijl: NDArray[np.float], i_reg=None, j_reg=None, l_reg=None, *, probability_epsilon: float = 1.0e-5
+        cls, gijl: NDArray[float], i_reg=None, j_reg=None, l_reg=None, *, probability_epsilon: float = 1.0e-5
     ) -> 'FactorizedGijlSubprepare':
         """Factory to construct the state preparation gate for a given gijl tensor,
         carries coefficients of single-factorized two-electron tensor
@@ -455,13 +455,13 @@ class SingleFactorizedPrepare(cft.algos.select_and_prepare.PrepareOracle):
     SF_register : cft.SelectionRegister #register holding single-factorization index
     s1_register : cft.SelectionRegister #spin registers
     s2_register : cft.SelectionRegister #spin registers
-    hij : NDArray[np.float_] #one-electron tensor
-    gijl : NDArray[np.float_] #two-electron single-factorized tensor (gpqrs = sum_l gpql*grsl)
+    hij : NDArray[float] #one-electron tensor
+    gijl : NDArray[float] #two-electron single-factorized tensor (gpqrs = sum_l gpql*grsl)
     probability_epsilon : float #probability for QROM precision
 
     @classmethod
     def build(
-        cls, hij : NDArray[np.float], gijl: NDArray[np.float], *, probability_epsilon: float = 1.0e-5
+        cls, hij : NDArray[float], gijl: NDArray[float], *, probability_epsilon: float = 1.0e-5
     ) -> 'SingleFactorizedPrepare':
 
         N = np.shape(hij)[0]
@@ -575,16 +575,16 @@ class Prepare_Sparse_SOTA(cft.algos.select_and_prepare.PrepareOracle):
     v_register : cft.SelectionRegister #register distinguishing between one- and two-electron terms
     s1_register : cft.SelectionRegister #spin registers
     s2_register : cft.SelectionRegister #spin registers
-    sparse_coeffs : NDArray[np.float_] #sparsified coefficients vector, includes one- and two-electron components
+    sparse_coeffs : NDArray[float] #sparsified coefficients vector, includes one- and two-electron components
     idx_arr : list #list mapping each element of sparse_coeffs to i,j,k,l indices and V mapping whether 1- or 2-electron
-    alt: NDArray[np.int_]
-    keep: NDArray[np.int_]
+    alt: NDArray[int]
+    keep: NDArray[int]
     mu: int
     N : int #total number of spacial orbitals, hij has dimension NxN
     
     @classmethod
     def build(
-        cls, hij : NDArray[np.float], gijkl: NDArray[np.float], *, probability_epsilon: float = 1.0e-5, truncation_threshold:float = 1.0e-5
+        cls, hij : NDArray[float], gijkl: NDArray[float], *, probability_epsilon: float = 1.0e-5, truncation_threshold:float = 1.0e-5
     ) -> 'Prepare_Sparse_SOTA':
 
         N = np.shape(hij)[0]
