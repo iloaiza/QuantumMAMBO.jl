@@ -177,6 +177,7 @@ class Select_AC(cft.UnaryIterationGate, cft.SelectOracle):
             #calculate angles for decomposing ac unitary A as:
             #U = prod_{i ascending}(exp(theta_i * p_i * p_(i+1))), with p_i i-th pauli word
             #A = U^{dagger} * p_1 * U
+            print("Phases from Pauli multiplication not being considered, angles might need correction")
             my_thetas = find_rotation_angles(my_coeffs)# * phases_i_iplus
 
             #implement AC unitary. First U is applied
