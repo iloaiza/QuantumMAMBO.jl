@@ -1,11 +1,11 @@
 [deps]
 h5py = ""
-numpy = ""
 pyscf = ""
+numpy = ""
 sympy = ""
-openfermion = ""
-openfermionpyscf = ""
-cirq = ""
 
 [pip.deps]
-cirq_ft = ""
+cirq = ""
+cirq-ft = ""
+openfermion = ""
+openfermionpyscf = ""
