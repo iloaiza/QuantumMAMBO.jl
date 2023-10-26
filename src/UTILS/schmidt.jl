@@ -30,7 +30,7 @@ function mbt_schmidt(mbt :: Array{Float64}; debug=false)
 	return U,S,V
 end
 
-function r_acos(x, tiny = 1e-10)
+function r_acos(x, tiny = 1e-7)
 	#returns acos(x), if abs(x) is close to ±1 by tiny rounds x to ±1
 	if abs(x) > 1 + tiny
 		error("acos not defined for x=$x")
@@ -45,7 +45,7 @@ function r_acos(x, tiny = 1e-10)
 	end
 end
 
-function r_asin(x, tiny = 1e-12)
+function r_asin(x, tiny = 1e-7)
 	#returns asin(x), if abs(x) is close to ±1 by tiny rounds x to ±1
 	if abs(x) > 1 + tiny
 		error("asin not defined for x=$x")

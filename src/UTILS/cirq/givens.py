@@ -18,6 +18,7 @@ from cirq_ft.algos import (
 )
 
 from utils import *
+from numpy.typing import ArrayLike, NDArray
 
 def bin_vec_to_int(bin_vec):
     #transforms binary vector (e.g. [0,1,1,1,0,0,1]) to integer with big-endian notation
@@ -66,6 +67,17 @@ def int_to_vec(i, beta):
 
     return vec
 
+def QROM_builder_with_fixed_target(*data: ArrayLike, target_bitsizes, num_controls: int = 0) -> 'qrom.QROM':
+    _data = [np.array(d, dtype=int) for d in data]
+    selection_bitsizes = tuple((s - 1).bit_length() for s in _data[0].shape)
+    
+    return qrom.QROM(
+        data=_data,
+        selection_bitsizes=selection_bitsizes,
+        target_bitsizes=target_bitsizes,
+        num_controls=num_controls,
+    )
+
 @attr.frozen
 class MultiplexedRzTheta(cft.GateWithRegisters):
     #apply controlled rotation Rz(theta) with approximation of angle theta using beta bits
@@ -81,24 +93,29 @@ class MultiplexedRzTheta(cft.GateWithRegisters):
     def registers(self) -> cft.Registers:
         return merge_registers(self.theta_register, self.target_register)
 
+    def on_qubits(theta_qubs, target_qubs, coeff, beta) -> cirq.OP_TREE:
+        for i in range(beta):
+            rz_theta_i = cirq.Rz(rads = -coeff * pi/(2**(i-1)))
+            rz_op = rz_theta_i.on(target_qubs)
+            yield rz_op.controlled_by(theta_qubs[i])
+
     def decompose_from_registers(
         self,
         *,
         context: cirq.DecompositionContext,
         **quregs: NDArray[cirq.Qid],  # type:ignore[type-var]
     ) -> cirq.OP_TREE:
-        theta_bits = get_qubits(self.theta_register)
-        target_bits = get_qubits(self.target_register)
-        for i in range(self.beta):
-            rz_theta_i = cirq.Rz(rads = -self.coeff * pi/(2**(i-2)))
-            rz_op = rz_theta_i.on(*target_bits)
-            yield rz_op.controlled_by(theta_bits[i])
+        theta_qubs = get_qubits(self.theta_register)
+        target_qubs = get_qubits(self.target_register)
+
+        return self.on_qubits(theta_qubs, target_qubs, self.coeff, self.beta)
 
 
 class MultiplexedPauliExponential(cft.GateWithRegisters):
     #implements exponential exp(-iP*theta) multiplexed by "theta" quantum register
     #P is given as integer vector with 0=id, 1=x, 2=y, 3=z (e.g. x1*y2*z4 = [1,2,0,3])
     #uses stair algorithm to decompose Pauli into CNOT stair with Rz(theta) multiplexed rotation
+    #see https://arxiv.org/pdf/2305.04807.pdf for more information
     #coeff is a constant multiplying the angle theta
     
     def __init__(self, pauli_vec, theta_register, target_register, coeff = 1):
@@ -114,6 +131,45 @@ class MultiplexedPauliExponential(cft.GateWithRegisters):
     def registers(self):
         return merge_registers(self.theta_register, self.target_register)
 
+    def on_qubits(target_qubs, theta_qubs, pauli_vec, coeff):
+        beta = len(theta_qubs)
+        last_qubit = target_qubs[-1]
+        num_targs = len(target_qubs)
+
+        #add left layer of diagonalization to z
+        rz_plus_gate = cirq.Rz(rads = pi/2) #for bringing y Pauli term to Z form
+        for i in range(num_targs):
+            if pauli_vec[i] == 1:
+                yield cirq.H.on(target_qubs[i])
+            elif pauli_vec[i] == 2:
+                yield cirq.H.on(target_qubs[i])
+                yield rz_plus_gate.on(target_qubs[i])
+
+        #add CNOT cascade
+        for i in reversed(range(1, num_targs)):
+            if pauli_vec[i] == 0:
+                yield cirq.SWAP.on(target_qubs[i-1], target_qubs[i])
+            else:
+                yield cirq.CNOT.on(target_qubs[i-1], target_qubs[i])
+
+        yield MultiplexedRzTheta.on_qubits(theta_qubs, last_qubit, coeff, beta)
+        
+        #do second part of cascade
+        for i in range(1, num_targs):
+            if pauli_vec[i] == 0:
+                yield cirq.SWAP.on(target_qubs[i-1], target_qubs[i])
+            else:
+                yield cirq.CNOT.on(target_qubs[i-1], target_qubs[i])    
+
+        #add right layer of diagonalization to z
+        rz_minus_gate = cirq.Rz(rads = -pi/2) #for bringing y Pauli term to Z form
+        for i in range(num_targs):
+            if pauli_vec[i] == 1:
+                yield cirq.H.on(target_qubs[i])
+            elif pauli_vec[i] == 2:
+                yield cirq.H.on(target_qubs[i])
+                yield rz_minus_gate.on(target_qubs[i])
+
     def decompose_from_registers(
         self,
         *,
@@ -123,45 +179,8 @@ class MultiplexedPauliExponential(cft.GateWithRegisters):
 
         target_qubs = get_qubits(self.target_register)
         theta_qubs = get_qubits(self.theta_register)
-
-        last_qubit_register = qubit_to_register(target_qubs[-1])
-
-        num_targs = len(target_qubs)
-
-        #add left layer of diagonalization to z
-        rz_plus_gate = cirq.Rz(rads = pi/2) #for bringing y Pauli term to Z form
-        for i in range(num_targs):
-            if self.pauli_vec[i] == 1:
-                yield cirq.H.on(target_qubs[i])
-            elif self.pauli_vec[i] == 2:
-                yield cirq.H.on(target_qubs[i])
-                yield rz_plus_gate.on(target_qubs[i])
-
-        #add CNOT cascade
-        for i in reversed(range(1, num_targs)):
-            if self.pauli_vec[i] == 0:
-                yield cirq.SWAP.on(target_qubs[i-1], target_qubs[i])
-            else:
-                yield cirq.CNOT.on(target_qubs[i-1], target_qubs[i])
-
-        Rz_rotation = MultiplexedRzTheta(theta_register = self.theta_register, target_register = last_qubit_register, coeff = self.coeff)
-        yield Rz_rotation.on(*get_qubits(Rz_rotation.registers))
-
-        #do second part of cascade
-        for i in range(1, num_targs):
-            if self.pauli_vec[i] == 0:
-                yield cirq.SWAP.on(target_qubs[i-1], target_qubs[i])
-            else:
-                yield cirq.CNOT.on(target_qubs[i-1], target_qubs[i])    
-
-        #add right layer of diagonalization to z
-        rz_minus_gate = cirq.Rz(rads = -pi/2) #for bringing y Pauli term to Z form
-        for i in range(num_targs):
-            if self.pauli_vec[i] == 1:
-                yield cirq.H.on(target_qubs[i])
-            elif self.pauli_vec[i] == 2:
-                yield cirq.H.on(target_qubs[i])
-                yield rz_minus_gate.on(target_qubs[i])
+        
+        return on_qubits(target_qubs, theta_qubs, self.pauli_vec, self.coeff)
 
 
 class MultiplexedEFTGivens(cft.GateWithRegisters):
@@ -242,13 +261,12 @@ class MultiplexedEFTGivens(cft.GateWithRegisters):
         thetas_shape = np.shape(self.thetas_arr)
         multiplex_shape = thetas_shape[:-1]
         
-        thetas_int_vals = np.zeros(thetas_shape)
-        for (idx, theta) in np.ndenumerate(self.thetas_arr):
-            thetas_int_vals[idx] = theta_to_int(theta, self.beta)
-
-        iterative_thetas = np.zeros((*multiplex_shape, self.N))
+        iterative_thetas = np.zeros((*multiplex_shape, self.N), dtype=int)
         for idx in np.ndindex(multiplex_shape):
-            theta_bin_vecs = iterative_angle_load(self.thetas_arr[idx + (...,)], self.beta)
+            my_angles = np.zeros(self.N-1)
+            for n in range(self.N-1):
+                my_angles[n] = self.thetas_arr[idx + (n,)]
+            theta_bin_vecs = iterative_angle_load(my_angles, self.beta)
             for n in range(self.N):
                 iterative_thetas[idx + (n,)] = bin_vec_to_int(theta_bin_vecs[n, :])
 
@@ -268,42 +286,34 @@ class MultiplexedEFTGivens(cft.GateWithRegisters):
 
         if self.dagger == False:
             for n in range(self.N-1):
-                qrom_i = qrom.QROM.build(iterative_thetas[..., n])
+                qrom_i = QROM_builder_with_fixed_target(iterative_thetas[..., n], target_bitsizes = tuple([self.beta]))
                 yield qrom_i.on_registers(target0 = theta_qubs, **sel_dict)
 
-                n_nplus_register = qubits_to_register(target_qubs[n:n+2])
+                nth_target = target_qubs[n:n+2]
                 if self.dual == True or ((self.dual == False) and self.m == 0):
-                    Vui = MultiplexedPauliExponential(pauli_vec = [2,1], theta_register = self.theta_register, target_register = n_nplus_register, coeff = -1)
-                    Vui_regs = Vui.registers
-                    yield Vui.on(*get_qubits(Vui_regs))
+                    yield MultiplexedPauliExponential.on_qubits(nth_target, theta_qubs, [2,1], -1)
 
                 if self.dual == True or ((self.dual == False) and self.m == 1):
-                    Vui = MultiplexedPauliExponential(pauli_vec = [1,2], theta_register = self.theta_register, target_register = n_nplus_register, coeff = 1)
-                    Vui_regs = Vui.registers
-                    yield Vui.on(*get_qubits(Vui_regs))
+                    yield MultiplexedPauliExponential.on_qubits(nth_target, theta_qubs, [1,2], 1)
 
             #unload QROM final step
-            qrom_i = qrom.QROM.build(iterative_thetas[..., -1])
+            qrom_i = QROM_builder_with_fixed_target(iterative_thetas[..., -1], target_bitsizes = tuple([self.beta]))
             yield qrom_i.on_registers(target0 = theta_qubs, **sel_dict)
         else:
             #do all operations in opposite direction
-            qrom_i = qrom.QROM.build(iterative_thetas[..., -1])
+            qrom_i = QROM_builder_with_fixed_target(iterative_thetas[..., -1], target_bitsizes = tuple([self.beta]))
             yield qrom_i.on_registers(target0 = theta_qubs, **sel_dict)
         
             for n in reversed(range(self.N-1)):
-                qrom_i = qrom.QROM.build(iterative_thetas[..., n])
+                qrom_i = QROM_builder_with_fixed_target(iterative_thetas[..., n], target_bitsizes = tuple([self.beta]))
                 yield qrom_i.on_registers(target0 = theta_qubs, **sel_dict)
 
-                n_nplus_register = qubits_to_register(target_qubs[n:n+2])
+                nth_target = target_qubs[n:n+2]
                 if self.dual == True or ((self.dual == False) and self.m == 0):
-                    Vui = MultiplexedPauliExponential(pauli_vec = [2,1], theta_register = self.theta_register, target_register = n_nplus_register, coeff = -1)
-                    Vui_regs = Vui.registers
-                    yield Vui.on(*get_qubits(Vui_regs))
+                    yield MultiplexedPauliExponential.on_qubits(nth_target, theta_qubs, [2,1], -1)
 
                 if self.dual == True or ((self.dual == False) and self.m == 1):
-                    Vui = MultiplexedPauliExponential(pauli_vec = [1,2], theta_register = self.theta_register, target_register = n_nplus_register, coeff = 1)
-                    Vui_regs = Vui.registers
-                    yield Vui.on(*get_qubits(Vui_regs))
+                    yield MultiplexedPauliExponential.on_qubits(nth_target, theta_qubs, [1,2], 1)
 
 
 

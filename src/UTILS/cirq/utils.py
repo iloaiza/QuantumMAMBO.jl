@@ -11,7 +11,15 @@ def to_operation(G):
     return G.on_registers(**G.registers.get_named_qubits())
 
 def to_circuit(G):
-    #turns a gate G into a circuit, will use default G.registers for target qubits
+    #recursively turns a gate G, or list of gates, into a circuit, will use default G.registers for target qubits
+    if type(G) == list:
+        g_sum = to_circuit(G[0])
+        for i in range(1,len(G)):
+            g_sum += to_circuit(G[i])
+        return g_sum
+    elif issubclass(type(G),cirq.Operation):
+        return cirq.Circuit(G)
+    
     return cirq.Circuit(to_operation(G))
 
 def spacial_orbital_sel_register(num_spacial_orbs, orb_name="i"):
@@ -71,37 +79,14 @@ def get_qubits(*regs):
         
     return qub_arr
 
-def qubit_to_register(q : cirq.Qid):
-    #return register which qubit names will point to same qubit
-    return cft.Register(name = q.name, shape=1)
+def recursive_circuit(GWR) -> cirq.Circuit:
+    """Diagram info that uses underlying operators from decompose_from_registers to represent circuit
+    Takes GateWithRegisters as input
+    """
+    context = cirq.DecompositionContext(cirq.ops.SimpleQubitManager())
 
-def qubits_to_register(q : Sequence[cirq.Qid]):
-    #return Registers array which qubit names will point to same qubits
-    ind_regs = []
-    for qub in q:
-        ind_regs += [qubit_to_register(qub)]
-    return merge_registers(*ind_regs)
-
-@attr.frozen
-class fSWAP(cft.GateWithRegisters):
-    #fermionic swap gate
-    tilde_register : cft.Register
-    swap_register : cft.Register
-
-    def decompose_from_registers(
-        self,
-        *,
-        context: cirq.DecompositionContext,
-        **quregs: NDArray[cirq.Qid],  # type:ignore[type-var]
-    ) -> cirq.OP_TREE:
-        tilde_qubs = get_qubits(tilde_register)
-        swap_qubs = get_qubits(swap_register)
-
-        yield cirq.SWAP.on(tilde_qubs, swap_qubs)
-        zgate = cirq.Z.on(swap_qubs)
-        yield zgate.controlled_by(tilde_qubs)
-
-    def _circuit_diagram_info_(self, _) -> cirq.CircuitDiagramInfo:
-        wire_symbols = ["x"] * self.swap_register.total_bits()
-        wire_symbols += ["x̃"] * self.selection_registers.total_bits()
-        return cirq.CircuitDiagramInfo(wire_symbols=wire_symbols)
+    op_list = []
+    for op in GWR.decompose_from_registers(**GWR.registers.get_named_qubits(), context=context):
+        op_list += [op]
+    
+    return to_circuit(op_list)

@@ -26,20 +26,22 @@ function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5)
 	j_reg = prep.j_register
 	k_reg = prep.k_register
 	l_reg = prep.l_register
-	V_reg = prep.V_register
+	V_reg = prep.v_register
 	s1_reg = prep.s1_register
 	s2_reg = prep.s2_register
 
-	ctl_reg = cft.Registers.build(control = 1)
+	ctl_reg = cft.Register("control", 1)
 
-	sel_circ = sparse_select(V_reg, i_reg, j_reg, k_reg, l_reg, s1_reg, s2_reg, ctl_reg)
+	sel = circuits.Select_Sparse(V_reg, i_reg, j_reg, k_reg, l_reg, s1_reg, s2_reg, ctl_reg)
+	sel_circ = circuits.recursive_circuit(sel)
 
-	prep_circ = circuits.to_circuit(prep)
+	prep_circ = circuits.recursive_circuit(prep)
 
-	println("Warning, oracle circuit does not implement inverse of PREP, good for gate count but bad for circuit")
+	println("Warning, oracle circuit does not implement inverse of PREP, good for gate count but incorrect circuit")
 	tot_circ = prep_circ + sel_circ + prep_circ
 
-	t_count = cft.t_complexity(tot_circ)
+	t_count = 2*cft.t_complexity(prep) + cft.t_complexity(sel)
+
 	tot_qubits = length(cirq.Circuit(cirq.decompose(tot_circ)).all_qubits())
 
 	return t_count, tot_qubits
@@ -59,11 +61,10 @@ function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4)
 		error("Not implemented for spin-orbitals!")
 	end
 
-	AC_coeffs, AC_ops = AC_group(H, ret_ops = true)
-	@show PAULI_L1(Q_OP(H) - sum(AC_ops))
-	@show PAULI_L1(Q_OP(H) - sum(AC_coeffs .* AC_ops))
+	AC_coeffs, AC_ops = AC_group(H, ret_ops = true) #Q_OP(H) == sum(AC_ops)
 
-	ac_groups = []
+	ac_int_vecs = []
+	ac_coeffs = []
 	n_qubits = AC_ops[1].N
 
 	for i in 1:length(AC_coeffs)
@@ -77,13 +78,14 @@ function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4)
 			int_arr[:,j] = pw_to_int_vec(pw)
 		end
 
-		push!(ac_groups, (coeffs, int_arr))
+		push!(ac_int_vecs, int_arr)
+		push!(ac_coeffs, coeffs)
 	end
 
-	prep = circuits.Prepare_AC(ac_groups, probability_epsilon = epsilon)
+	prep = circuits.Prepare_AC(ac_coeffs, probability_epsilon = epsilon)
 	n_reg = prep.n_register
 
-	sel = Select_AC(ac_groups, n_reg = n_reg)
+	sel = circuits.Select_AC(ac_int_vecs, ac_coeffs, n_reg = n_reg)
 
 	t_count = 2 * cft.t_complexity(prep) + cft.t_complexity(sel)
 
@@ -134,7 +136,7 @@ function DF_circuit(H :: F_OP; epsilon = 1e-5, DF_tol = SVD_tol)
 	end
 
 	for l in 1:num_frags
-		mus_mat[l+1, L] .= DF_frags[l].C.λ
+		mus_mat[l+1, :] .= DF_frags[l].C.λ
 		for k in 1:num_orbs
 			thetas_tsr[l+1, k, :] = U_to_Givens(DF_frags[l].U[1], k)
 		end
@@ -144,7 +146,10 @@ function DF_circuit(H :: F_OP; epsilon = 1e-5, DF_tol = SVD_tol)
 	prep_inv = circuits.DF_Prepare(mus_mat, probability_epsilon = epsilon, dagger = true)
 	sel = circuits.DF_Select(prep.l_register, prep.l_not_0_register, mus_mat, thetas_tsr)
 
-	t_count = cft.t_complexity(prep) + cft.t_complexity(prep_inv) + cft.t_complexity(sel)
+	prep_count = cft.t_complexity(prep)
+	prep_inv_count = cft.t_complexity(prep_inv)
+	sel_count = cft.t_complexity(sel)
+	t_count = prep_count + prep_inv_count + sel_count
 	tot_circ = circuits.to_circuit(prep) + circuits.to_circuit(sel) + circuits.to_circuit(prep_inv)
 
 	tot_qubits = length(cirq.Circuit(cirq.decompose(tot_circ)).all_qubits())

@@ -26,7 +26,7 @@ class DF_Subprepare(cft.GateWithRegisters):
     """
 
     def __init__(
-        self, l_reg, mus_mat: NDArray[np.float], j_reg=None, probability_epsilon: float = 1.0e-5, dagger:bool = False
+        self, l_reg, mus_mat: NDArray[float], j_reg=None, probability_epsilon: float = 1.0e-5, dagger:bool = False
     ):
         """
         Args:
@@ -324,10 +324,10 @@ class DF_Prepare(cft.PrepareOracle):
             self.l_register = l_reg
 
         if type(l_not_0_reg) == type(None):
-            self.l_not_0_reg = cft.Register("l_not_0", 1)
+            self.l_not_0_register = cft.Register("l_not_0", 1)
         else:
             assert l_not_0_reg.total_bits() == 1
-            self.l_not_0_reg = l_not_0_reg
+            self.l_not_0_register = l_not_0_reg
 
         lambdas_arr = np.zeros(self.L)
         lambdas_arr[0] = np.sum(np.abs(mus_mat[0,:]))
@@ -348,7 +348,7 @@ class DF_Prepare(cft.PrepareOracle):
 
     @property
     def selection_registers(self) -> infra.SelectionRegisters:
-        return merge_registers(self.l_register, self.l_not_0_reg)
+        return merge_registers(self.l_register, self.l_not_0_register)
 
     @cached_property
     def sigma_mu_bitsize(self) -> int:
@@ -378,7 +378,7 @@ class DF_Prepare(cft.PrepareOracle):
         **quregs: NDArray[cirq.Qid],  # type:ignore[type-var]
     ) -> cirq.OP_TREE:
         l_qubs = get_qubits(self.l_register)
-        l_not_0_qubs = get_qubits(self.l_not_0_reg)
+        l_not_0_qubs = get_qubits(self.l_not_0_register)
         less_than_equal = quregs['less_than_equal']
         sigma_mu, alt, keep = quregs['sigma_mu'], quregs['alt'], quregs['keep']
         

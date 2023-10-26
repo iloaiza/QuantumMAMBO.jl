@@ -6,6 +6,7 @@ import cirq
 import cirq_ft as cft
 import numpy as np
 from math import log2, ceil, pi
+from coeff_prep import *
 
 
 def find_rotation_angles(coeffs, tiny = 1e-8):
@@ -89,13 +90,17 @@ class Select_AC(cft.UnaryIterationGate, cft.SelectOracle):
     an = sqrt(sum_{k in group(n)} ck^2)
 
     input: ac_groups: list of length Nac, where the n-th element corresponds to:
-        ac_groups[n] = ([c1, c2, ...,], PAULIS(n))
-        So ac_groups[n][0] is a vector with the coefficients, and ac_groups[n][1][i,j] contains integer i of Pauli word j
+        ac_vecs[n][i,j] contains integer i of Pauli word number j of group n
+        ac_coeffs[n][j] contains coefficient of Pauli word number j of group n
         (for integer representation of Pauli words, see MultiplexedPauliExponential in givens.py) 
     """
-    def __init__(self, ac_groups, n_reg = None, targ_reg = None, ctl_reg = None):
-        self.Nac = len(ac_groups)
+    def __init__(self, ac_vecs, ac_coeffs, n_reg = None, targ_reg = None, ctl_reg = None):
+        self.Nac = len(ac_coeffs)
         Nac = self.Nac
+
+        ac_groups = []
+        for n in range(Nac):
+            ac_groups += [(ac_coeffs[n], ac_vecs[n])]
         self.ac_groups = ac_groups
 
         num_paulis = np.zeros(self.Nac, dtype=int)
@@ -166,6 +171,11 @@ class Select_AC(cft.UnaryIterationGate, cft.SelectOracle):
         my_coeffs = self.ac_groups[n][0]
         my_paulis = self.ac_groups[n][1]
         pauli_len, num_paulis = np.shape(my_paulis)
+        null_qubs = np.array([], dtype=object)
+        target_qubs = get_qubits(self.target_registers)
+
+        if n == 0:
+            print("Phases from Pauli multiplication not being considered, angles might need correction")
 
         if num_paulis > 1:
             #calculate products of adjacent pauli terms
@@ -177,29 +187,22 @@ class Select_AC(cft.UnaryIterationGate, cft.SelectOracle):
             #calculate angles for decomposing ac unitary A as:
             #U = prod_{i ascending}(exp(theta_i * p_i * p_(i+1))), with p_i i-th pauli word
             #A = U^{dagger} * p_1 * U
-            print("Phases from Pauli multiplication not being considered, angles might need correction")
             my_thetas = find_rotation_angles(my_coeffs)# * phases_i_iplus
 
             #implement AC unitary. First U is applied
             target_qubs = get_qubits(self.target_register)
             for i in reversed(range(num_paulis - 1)):
-                exp_i = PauliExponential(paulis_i_iplus[:, i], cft.Registers([]), self.target_register, my_thetas[i])
-                yield exp_i.on(*get_qubits(exp_i.registers))
+                yield PauliExponential.on_qubits(target_qubs, null_qubs, paulis_i_iplus[:, i], my_thetas[i])
 
             #controlled application of p_1
-            ctl_reg = qubit_to_register(control)
-            p_1 = PauliExponential(my_paulis[:, 0], ctl_reg, self.target_register, -pi)
-            yield p_1.on(control, *get_qubits(p_1.target_registers))
+            yield PauliExponential.on_qubits(target_qubs, control, my_paulis[:,0], -pi)
 
             #application of U^dagger
             for i in range(num_paulis - 1):
-                exp_i = PauliExponential(paulis_i_iplus[:, i], cft.Registers([]), self.target_register, my_thetas[i])
-                yield exp_i.on(*get_qubits(exp_i.registers))
+                yield PauliExponential.on_qubits(target_qubs, null_qubs, paulis_i_iplus[:, i], my_thetas[i])
+        else:
+            yield PauliExponential.on_qubits(target_qubs, control, my_paulis[:,0], -pi)
 
-            else:
-                ctl_reg = qubit_to_register(control)
-                p_1 = PauliExponential(my_paulis[:, 0], ctl_reg, self.target_register, -pi)
-                yield p_1.on(control, *get_qubits(p_1.target_registers))
 
 
 class Prepare_AC(cft.PrepareOracle):
@@ -207,20 +210,20 @@ class Prepare_AC(cft.PrepareOracle):
     Prepare circuit for anticommuting grouping
 
     inputs: 
-        -ac_groups: same as for Select_AC oracle
+        -ac_coeffs: same as for Select_AC oracle
         -n_reg: register over which coherent coefficients state will be prepared
         -probability_epsilon: accuracy with which coefficients will be prepared
 
     """
-    def __init__(self, ac_groups, n_reg = None, probability_epsilon: float = 1.0e-5):
-        self.Nac = len(ac_groups)
+    def __init__(self, ac_coeffs, n_reg = None, probability_epsilon: float = 1.0e-5):
+        self.Nac = len(ac_coeffs)
         Nac = self.Nac
-        self.ac_groups = ac_groups
+        self.ac_coeffs = ac_coeffs
 
         an_arr = np.zeros(self.Nac)
         for n in range(self.Nac):
-            coeffs = ac_groups[n][0]
-            an_arr[n] = np.sqrt(np.sum(coeffs ** 2))
+            coeffs = ac_coeffs[n]
+            an_arr[n] = np.sqrt(np.sum(np.abs(coeffs) ** 2))
         self.an_arr = an_arr
 
         if type(n_reg) == type(None):
@@ -229,7 +232,6 @@ class Prepare_AC(cft.PrepareOracle):
             assert n_reg.iteration_length == Nac
             self.n_register = n_reg
         self.probability_epsilon = probability_epsilon
-
 
     @property
     def selection_registers(self) -> cft.SelectionRegisters:
@@ -246,9 +248,5 @@ class Prepare_AC(cft.PrepareOracle):
         **quregs: NDArray[cirq.Qid],  # type:ignore[type-var]
     ) -> cirq.OP_TREE:
 
-        prep = TargetedPrepare.from_lcu_probs(self.an_arr, sel_regs = self.selection_registers, probability_epsilon = self.probability_epsilon)
-        
+        prep = TargetedCoefficients.from_lcu_probs(self.an_arr, probability_epsilon = self.probability_epsilon, sel_reg = self.n_register)
         yield prep.on(*get_qubits(prep.registers))
-
-
-        
