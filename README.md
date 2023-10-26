@@ -42,17 +42,18 @@ from juliacall import Main as jl
 
 jl.seval("using QuantumMAMBO")
 
-mambo = jl.QuantumMAMBO
+QM = jl.QuantumMAMBO
 ```
 See `pyMAMBO.py` for an example script of interfacing Python with QuantumMAMBO. QuantumMAMBO can also be called from a local installation for Python by instead using the following script:
 ```
 import juliacall
 from juliacall import Main as jl
 
-jl.seval('include("src/QuantumMAMBO.jl")')
+jl.seval('import Pkg; Pkg.activate("./")')
+jl.seval('Pkg.instantiate()')
 jl.seval("using .QuantumMAMBO")
 
-mambo = jl.QuantumMAMBO
+QM = jl.QuantumMAMBO
 ```
 
 
@@ -60,6 +61,7 @@ mambo = jl.QuantumMAMBO
 
 ### Main folder
 	- L1.jl: full workflow for obtaining LCU 1-norms for all decompositions/methods
+	- LCU.jl: workflow for obtaining circuits of LCUs using cirq-ft
 	- Project.toml: package metadata and dependencies
 	- CondaPkg.toml: python installation dependencies for micromamba environment
 	- pyMAMBO.py: example of python script using QuantumMAMBO
@@ -72,6 +74,9 @@ mambo = jl.QuantumMAMBO
 
 ### UTILS folder
 	- bliss.jl: functions for BLISS routine (see Ref. 2)
+	- circuits.jl: julia wrappers for interfacing QuantumMAMBO LCU decompositions with cirq circuit building
+	- circuits.py: python wrapper which includes all cirq building tools in cirq folder
+	- cirq: folder containing all python functions for building cirq LCU oracles
 	- cost.jl: functions for calculating different norms of operators. Mainly 1- and 2-norms of fermionic operators.
 	- decompose.jl: CSA, DF, and related decompositions of fermionic operators
 	- ferm_utils.py: utilities for fermionic operators in python, interfaces with openfermion
@@ -103,7 +108,7 @@ This code was developped and used for all results in the publications:
 
 [1] - I. Loaiza, A. Marefat Khah, N. Wiebe, and A. F. Izmaylov, Reducing molecular electronic Hamiltonian simulation cost for Linear Combination of Unitaries approaches. Quantum Sci. Technol. 8 (3) 035019, 2023.
 
-[2] - I. Loaiza, A. F. Izmaylov, Reducing the molecular electronic Hamiltonian encoding costs on quantum computers by symmetry shifts. arXiv:2304.13772, 2023.
+[2] - I. Loaiza, A. F. Izmaylov, Block-Invariant Symmetry Shift: Preprocessing technique for second-quantized Hamiltonians to improve their decompositions to Linear Combination of Unitaries. arXiv:2304.13772, 2023.
 
 ## Code collaborators
 	- Ignacio Loaiza (@iloaiza)
