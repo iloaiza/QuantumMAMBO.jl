@@ -1,4 +1,4 @@
-function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING)
+function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING; kwargs...)
 	#loads (or generates and saves) Hamiltonian in FILENAME corresponding to mol_name
 	if DO_SAVE && isfile(FILENAME*".h5")
 		fid = h5open(FILENAME*".h5", "cw")
@@ -12,7 +12,7 @@ function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAV
 			close(fid)
 			H = F_OP((h_const,obt,tbt))
 		else
-			H, η = obtain_H(mol_name)
+			H, η = obtain_H(mol_name; kwargs...)
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			if haskey(fid, "MOLECULAR_DATA")
 				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
@@ -29,7 +29,7 @@ function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAV
 			close(fid)
 		end
 	else 
-		H, η = obtain_H(mol_name)
+		H, η = obtain_H(mol_name; kwargs...)
 		if DO_SAVE
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			fid = h5open(FILENAME*".h5", "cw")

@@ -38,7 +38,7 @@ end
 
 function obtain_H(mol_name; kwargs...)
 	#returns fermionic operator of H in orbitals and number of electrons
-	h_ferm, num_elecs = obtain_OF_hamiltonian(mol_name, kwargs...)
+	h_ferm, num_elecs = obtain_OF_hamiltonian(mol_name; kwargs...)
 	
 	Hconst, obt, tbt = fermionic.to_tensors(h_ferm)
 	obt = pyconvert(Array{Float64},obt)
