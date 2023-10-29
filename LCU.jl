@@ -17,13 +17,13 @@ println("Running Pauli (Sparse) routine...")
 
 println("Running PREPARE-based circuits...")
 println("DF")
-prep_op, sel_op = QM.MTD_circuit(H, flavour = "DF")
-
-println("MPS")
-prep_op, sel_op = QM.MTD_circuit(H, flavour = "MPS")
+prep_op, sel_op = QM.MTD_circuit(H, "DF")
 
 println("CP4")
-prep_op, sel_op = QM.MTD_circuit(H, flavour = "CP4")
+prep_op, sel_op = QM.MTD_circuit(H, "CP4")
+
+println("MPS")
+prep_op, sel_op = QM.MTD_circuit(H, "MPS")
 
 println("\nRunning SELECT-based circuits")
 

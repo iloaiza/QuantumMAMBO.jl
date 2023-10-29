@@ -54,9 +54,9 @@ class Select_Qija(cft.SelectOracle):
         control = quregs["control"]
         spin = quregs["spin"]
 
-        yield cft.SelectedMajoranaFermionGate.make_on(target_gate=cirq.Y, selection=i_qubs, control=control, target=psi_qubs)
+        yield cft.SelectedMajoranaFermionGate.make_on(target_gate=cirq.Y, selection=[*i_qubs,*spin], control=control, target=psi_qubs)
         yield cirq.S.on(*control)
-        yield cft.SelectedMajoranaFermionGate.make_on(target_gate=cirq.X, selection=j_qubs, control=control, target=psi_qubs)
+        yield cft.SelectedMajoranaFermionGate.make_on(target_gate=cirq.X, selection=[*j_qubs,*spin], control=control, target=psi_qubs)
 
 class MTD_Select(cft.SelectOracle):
     """
