@@ -1,7 +1,7 @@
 import cirq
 import cirq_ft as cft
 import numpy as np
-from math import ceil, log2
+from math import ceil, log2, log
 import attr
 from typing import List, Tuple
 from numpy.typing import NDArray
@@ -19,7 +19,7 @@ from cirq_ft.algos import (
 import abc
 from utils import *
 
-debug_tiny = 1e-8 #make sure 2-norm of reconstructed g tensor is within this tolerance if debug == True
+debug_tiny = 5e-5 #tiny number for sanity checks
 
 class one_el_Prepare(cft.PrepareOracle):
     """
@@ -40,7 +40,7 @@ class one_el_Prepare(cft.PrepareOracle):
         N,Nbis = np.shape(h_tilde)
         assert N == Nbis
         lambda_1 = np.sum(np.abs(h_tilde))
-        assert h_tilde == np.transpose(h_tilde)
+        assert np.sum(np.abs((h_tilde - np.transpose(h_tilde))) ** 2) < debug_tiny
 
         self.N = N
         self.lambda_1 = lambda_1
@@ -74,15 +74,15 @@ class one_el_Prepare(cft.PrepareOracle):
         Ncal_dict = {}
         idx = 0
         for i in range(N):
-            for j in range(i):
+            for j in range(i+1):
                 Ncal_dict[idx] = (i,j)
                 if i == j:
                     h_info[idx] = h_tilde[i,i]
                 else:
                     h_info[idx] = np.sqrt(2) * h_tilde[i,j]
                 idx += 1
-
         self.h_signs = np.array(np.where(h_info<0, 1, 0), dtype=int)
+
 
         alt, keep, self.mu = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
             lcu_coefficients=np.abs(h_info), epsilon=probability_epsilon)
@@ -165,15 +165,15 @@ class one_el_Prepare(cft.PrepareOracle):
 
         #implement prepare(h_tilde) conditioned on V = 0:
         #start with uniform superposition of |i> and |j> states:
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.N).on(*i_qubits).controlled_by(*v_qubits)
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.N).on(*j_qubits).controlled_by(*v_qubits)
-
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.N, (1,)).on_registers(target=i_qubits, controls=v_qubits)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.N, (1,)).on_registers(target=j_qubits, controls=v_qubits)
+        
         #prepare sigma register on superposition
         yield cirq.H.on_each(*sigma_qubits)
 
         #prepare contiguous register
-        con_gate = ContiguousRegisterGate(bitsize=self.alternates_bitsize, target_bitsize=self.contiguous_bitsize)
-        yield con_gate.on(*i_qubits, *j_qubits, *contiguous_qubits).controlled_by(*v_qubits)
+        con_gate = arithmetic_gates.ContiguousRegisterGate(bitsize=self.alternates_bitsize, target_bitsize=self.contiguous_bitsize)
+        yield con_gate.on(*i_qubits, *j_qubits, *contiguous_qubits)
 
         #load QROM data
         qrom_gate = qrom.QROM(
@@ -286,8 +286,8 @@ class MTD_Prepare(cft.PrepareOracle):
         w_shape : tuple, Omega_info, U_info, flavour : str, debug=True):
         self.probability_epsilon = probability_epsilon
         flavour_list = ["MPS", "CP4", "THC", "DF", "arbitrary"]
-        assert (flavour == flavour_list).any(), f"MTD flavour not implemented!"
-        self.flavour == flavour
+        assert flavour in flavour_list, f"MTD flavour not implemented!"
+        self.flavour = flavour
 
         self.Omega_info = Omega_info
         self.U_info = U_info
@@ -306,8 +306,8 @@ class MTD_Prepare(cft.PrepareOracle):
             assert np.shape(U_info) == (N,R,N)
 
             if debug == True:
-                Omega = np.zeros(R,N,N)
-                U = np.zeros(4,R,N,N,N)
+                Omega = np.zeros((R,N,N))
+                U = np.zeros((N,4,R,N,N))
 
                 for r in range(R):
                     for p in range(N):
@@ -315,13 +315,11 @@ class MTD_Prepare(cft.PrepareOracle):
                         for q in range(N):
                             Omega[r,p,q] = epsilon_rp * Omega_info[r,q]
                         
-                        for i in range(N):
-                            for m in range(2):
-                                #inplicit delta(q,0)
-                                U[i,m,r,p,0] = U_info[i,r,p]
-                            for m in range(2,4):
-                                #inplicit delta(q,0)
-                                U[i,m,r,0,p] = U_info[i,r,p]
+                            for i in range(N):
+                                for m in range(2):
+                                    U[i,m,r,p,q] = U_info[i,r,p]
+                                for m in range(2,4):
+                                    U[i,m,r,p,q] = U_info[i,r,q]
 
         elif flavour == "THC":
             assert len(w_shape) == 1
@@ -336,12 +334,12 @@ class MTD_Prepare(cft.PrepareOracle):
             assert R == R3
 
             if debug == True:
-                Omega = np.zeros(R,R)
-                U = np.zeros(N,4,R,R)
+                Omega = np.zeros((R,R))
+                U = np.zeros((N,4,R,R))
 
                 idx = 0
                 for r1 in range(R):
-                    for r2 in range(r1):
+                    for r2 in range(r1+1):
                         if r1 == r2:
                             Omega[r1,r1] = Omega_info[idx]
                             for i in range(N):
@@ -354,11 +352,9 @@ class MTD_Prepare(cft.PrepareOracle):
 
                         for i in range(N):
                             for m in range(2):
-                                #inplicit delta(r2,0)
-                                U[i,m,r,0] = U_info[i,r]
+                                U[i,m,r1,r2] = U_info[i,r1]
                             for m in range(2,4):
-                                #inplicit delta(r1,0)
-                                U[i,m,0,r] = U_info[i,r]
+                                U[i,m,r1,r2] = U_info[i,r2]
         
         elif flavour == "MPS":
             assert len(w_shape) == 3
@@ -372,25 +368,25 @@ class MTD_Prepare(cft.PrepareOracle):
             assert len(Omega_info[1]) == A2
             assert len(Omega_info[2]) == A3
 
-            assert len(np.shape(U[0])) == 2
-            assert len(np.shape(U[1])) == 3
-            assert len(np.shape(U[2])) == 3
-            assert len(np.shape(U[3])) == 2
+            assert len(np.shape(U_info[0])) == 2
+            assert len(np.shape(U_info[1])) == 3
+            assert len(np.shape(U_info[2])) == 3
+            assert len(np.shape(U_info[3])) == 2
 
-            N,A1_bis = np.shape(U[0])
+            N,A1_bis = np.shape(U_info[0])
             assert A1_bis == A1
 
-            Nbis,A1_bis,A2_bis = np.shape(U[1])
+            Nbis,A1_bis,A2_bis = np.shape(U_info[1])
             assert A1_bis == A1
             assert A2_bis == A2
             assert Nbis == N
 
-            Nbis,A2_bis,A3_bis = np.shape(U[2])
+            Nbis,A2_bis,A3_bis = np.shape(U_info[2])
             assert A3_bis == A3
             assert A2_bis == A2
             assert Nbis == N
 
-            Nbis,A3_bis = np.shape(U[3])
+            Nbis,A3_bis = np.shape(U_info[3])
             assert A3_bis == A3
             assert A2_bis == A2
             assert Nbis == N
@@ -398,28 +394,22 @@ class MTD_Prepare(cft.PrepareOracle):
             self.N = N
 
             if debug == True:
-                Omega = np.zeros(A1,A2,A3)
-                U = np.zeros(4,A1,A2,A3,N)
+                Omega = np.zeros((A1,A2,A3))
+                U = np.zeros((N,4,A1,A2,A3))
 
                 for a1 in range(A1):
                     for a2 in range(A2):
                         for a3 in range(A3):
                             Omega[a1,a2,a3] = Omega_info[0][a1] * Omega_info[1][a2] * Omega_info[2][a3]
+                            U[:,0,a1,a2,a3] = U_info[0][:,a1]
+                            U[:,1,a1,a2,a3] = U_info[1][:,a1,a2]
+                            U[:,2,a1,a2,a3] = U_info[2][:,a2,a3]
+                            U[:,3,a1,a2,a3] = U_info[3][:,a3]
 
-                for i in range(N):
-                    for a1 in range(A1):
-                        U[i,0,a1,0,0] = U_info[0][i,a1]
-                        for a2 in range(A2):
-                            U[i,1,a1,a2,0] = U_info[1][i,a1,a2]
-
-                    for a3 in range(A3):
-                        U[i,3,0,0,a3] = U_info[3][i,a3]
-                        for a2 in range(A2):
-                            U[i,2,0,a2,a3] = U_info[2][i,a2,a3]
 
         elif flavour == "CP4":
             assert len(w_shape) == 1
-            W = len(w_shape[0])
+            W = w_shape[0]
             self.W = W
             assert len(Omega_info) == W
 
@@ -427,7 +417,7 @@ class MTD_Prepare(cft.PrepareOracle):
             N, bis_4, W_bis = np.shape(U_info)
             assert bis_4 == 4
             assert W == W_bis
-            self.N == N
+            self.N = N
 
             if debug == True:
                 Omega = Omega_info
@@ -449,7 +439,7 @@ class MTD_Prepare(cft.PrepareOracle):
         assert np.shape(g) == (N,N,N,N)
 
         if debug == True:
-            g_recons = np.zeros(N,N,N,N)
+            g_recons = np.zeros((N,N,N,N))
 
             for idx in np.ndindex(w_shape):
                 for i in range(N):
@@ -488,8 +478,7 @@ class MTD_Prepare(cft.PrepareOracle):
         v_qubs = quregs["v"]
 
         one_el_gate = one_el_Prepare(self.h_tilde, self.lambda_2, probability_epsilon=self.probability_epsilon)
-        yield one_el_gate.on_registers(i=i_qubs, j=j_qubs, v=v_qubs)
-        #yield one_el_gate.on_registers(i=i_qubs, j=j_qubs, v=v_qubs, **one_el_gate.junk_registers.get_named_qubits())
+        yield one_el_gate.on_registers(i=i_qubs, j=j_qubs, v=v_qubs, **one_el_gate.junk_registers.get_named_qubits())
 
         if self.flavour == "THC":
             two_el_gate = MTD_THC(self.probability_epsilon, self.R, self.N, self.Omega_info, self.U_info)
@@ -500,8 +489,8 @@ class MTD_Prepare(cft.PrepareOracle):
         elif self.flavour == "CP4":
             two_el_gate = MTD_CP4(self.probability_epsilon, self.W, self.N, self.Omega_info, self.U_info)
 
-        yield two_el_gate.on_registers(i = i_qubs, j = j_qubs, k = k_qubs, l = l_qubs, v = v_qubs)
-        #yield one_el_gate.on_registers(**two_el_gate.registers.get_named_qubits())
+        yield two_el_gate.on_registers(i = i_qubs, j = j_qubs, k = k_qubs, l = l_qubs, v = v_qubs,
+            **two_el_gate.junk_registers.get_named_qubits())
 
 class Prepare_U(cft.PrepareOracle):
     """
@@ -544,7 +533,7 @@ class Prepare_U(cft.PrepareOracle):
 
         self.alts = alts
         self.keeps = keeps
-        self.U_signs = np.array(np.where(U_tsr<0, 1, 0), dtype=int)
+        self.U_signs = np.array(np.where(np.array(U_tsr)<0, 1, 0), dtype=int)
 
     @cached_property
     def sigma_mu_bitsize(self) -> int:
@@ -558,15 +547,6 @@ class Prepare_U(cft.PrepareOracle):
     def keep_bitsize(self) -> int:
         return self.mu
 
-    @cached_property
-    def junk_registers(self) -> cft.Registers:
-        return cft.Registers.build(
-            sigma_mu=self.sigma_mu_bitsize,
-            alt=self.alternates_bitsize,
-            keep=self.keep_bitsize,
-            less_than_equal=1,
-            theta=1)
-
     @property
     def control_registers(self) -> cft.Registers:
         return cft.Registers.build(control = 1)
@@ -574,9 +554,9 @@ class Prepare_U(cft.PrepareOracle):
     @cached_property
     def selection_registers(self) -> cft.SelectionRegisters:
         regs = [spacial_orbital_sel_register(self.N, "i")]
-        for i in len(self.multiplex_shape):
+        for i in range(len(self.multiplex_shape)):
             regs += [cft.SelectionRegister("selection"+str(i), ceil(log2(self.multiplex_shape[i])), self.multiplex_shape[i])]
-        return merge_registers(regs)
+        return merge_registers(*regs)
 
     @cached_property
     def selection_bitsizes(self) -> tuple:
@@ -588,7 +568,7 @@ class Prepare_U(cft.PrepareOracle):
 
     @cached_property
     def registers(self) -> cft.Registers:
-        return merge_registers(self.selection_registers, self.control_registers, self.junk_registers)
+        return merge_registers(self.selection_registers, self.control_registers)
 
     def decompose_from_registers(
         self,
@@ -597,16 +577,20 @@ class Prepare_U(cft.PrepareOracle):
         **quregs: NDArray[cirq.Qid],  # type:ignore[type-var]
     ) -> cirq.OP_TREE:
 
-        sigma_mu, alt, keep = quregs["sigma_mu"], quregs["alt"], quregs["keep"]
-        less_than_equal, theta = quregs["less_than_equal"], quregs["theta"]
+        sigma_mu = context.qubit_manager.qalloc(self.sigma_mu_bitsize)
+        alt = context.qubit_manager.qalloc(self.alternates_bitsize)
+        keep = context.qubit_manager.qalloc(self.keep_bitsize)
+        less_than_equal = context.qubit_manager.qalloc(1)
+        theta = context.qubit_manager.qalloc(1)
+
         control = quregs["control"]
 
         selections = []
-        for i in len(self.multiplex_shape):
+        for i in range(len(self.multiplex_shape)):
             selections += [quregs["selection"+str(i)]]
         i_qubs = quregs["i"]
 
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.N).on(*i_qubs).controlled_by(*control)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.N, (1,)).on_registers(target=i_qubs, controls=control)
         yield cirq.H.on_each(sigma_mu)
 
         qrom_gate = qrom.QROM(
@@ -622,16 +606,23 @@ class Prepare_U(cft.PrepareOracle):
 
         yield qrom_gate.on_registers(**qrom_sels_dict, target0 = alt, target1 = keep, target2 = theta, control=control)
 
-        yield arithmetic_gates.LessThanEqualGate(self.mu, self.mu).on(*keep, *sigma, *less_than_equal)
+        yield arithmetic_gates.LessThanEqualGate(self.mu, self.mu).on(*keep, *sigma_mu, *less_than_equal)
         yield swap_network.MultiTargetCSwap.make_on(control=control, target_x=alt, target_y=i_qubs)
 
 
 class MTD_DF(cft.PrepareOracle):
-    probability_epsilon : float
-    R : int
-    N : int
-    Omega_info : NDArray[float]
-    U_info : NDArray[float]
+
+    def __init__(self, probability_epsilon : float,
+    R : int,
+    N : int,
+    Omega_info : NDArray[float],
+    U_info : NDArray[float]):
+
+        self.probability_epsilon = probability_epsilon
+        self.R = R
+        self.N = N
+        self.Omega_info = Omega_info
+        self.U_info = U_info
 
     @cached_property
     def selection_registers(self) -> cft.SelectionRegisters:
@@ -653,26 +644,20 @@ class MTD_DF(cft.PrepareOracle):
 
     @cached_property
     def get_omega_prep(self) -> int:
-        alt_0, keep_0, mu = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
-            lcu_coefficients=np.abs(Omega_info[0,:]), epsilon=probability_epsilon)
+        alts = np.zeros((self.R, self.N))
+        keeps = np.zeros((self.R, self.N))
+        for r in range(self.R):
+            alts[r,:], keeps[r,:], mu = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
+                lcu_coefficients=np.abs(self.Omega_info[r,:]), epsilon=self.probability_epsilon)
+      
+        rp_signs = np.array(np.where(np.array(self.Omega_info)<0, 1, 0), dtype=int)
 
-        len_alt = len(alt_0)
-        len_keep = len(keep_0)
-        alts = np.zeros(self.R, len_alt)
-        keeps = np.zeros(self.R, len_keep)
+        self.alts = alts
+        self.keeps = keeps
+        self.rp_signs = rp_signs
+        self.mu = mu
 
-        for r in range(1,self.R):
-            alts[R,:], keeps[R,:], _ = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
-                lcu_coefficients=np.abs(Omega_info[r,:]), epsilon=probability_epsilon)
-        
-        rp_signs = np.array(np.where(Omega_info<0, 1, 0), dtype=int)
-
-        self.omega_alts = alts
-        self.omega_keeps = keeps
-        self.omega_rp_signs = rp_signs
-        self.omega_mu = mu
-
-        return self.omega_mu
+        return self.mu
 
     @cached_property
     def omega_sigma_mu_bitsize(self) -> int:
@@ -723,22 +708,22 @@ class MTD_DF(cft.PrepareOracle):
         q_qubs = quregs["q"]
         theta_p_qubs = quregs["theta_p"]
         theta_q_qubs = quregs["theta_q"]
-        omega_sigma_mu_qubs_p = quregs["omega_sigma_mu_qubits_p"]
+        omega_sigma_qubs_p = quregs["omega_sigma_mu_p"]
         omega_alt_qubs_p = quregs["omega_alt_p"]
         omega_keep_qubs_p = quregs["omega_keep_p"]
         omega_less_than_equal_qubs_p = quregs["omega_less_than_equal_p"]
-        omega_sigma_mu_qubs_q = quregs["omega_sigma_mu_qubits_q"]
+        omega_sigma_qubs_q = quregs["omega_sigma_mu_q"]
         omega_alt_qubs_q = quregs["omega_alt_q"]
         omega_keep_qubs_q = quregs["omega_keep_q"]
         omega_less_than_equal_qubs_q = quregs["omega_less_than_equal_q"]
 
         omega_mu = self.omega_sigma_mu_bitsize
         #build prepare Omega circuit
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.R).on(*r_qubits).controlled_by(*v_qubits)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.R, (1,)).on_registers(target=r_qubs, controls=v_qubs)
         
         ##controlled superposition epsilon(r,p) on both p and q registers
-        yield cirq.H.on_each(*omega_sigma_mu_qubs_p)
-        yield cirq.H.on_each(*omega_sigma_mu_qubs_q)
+        yield cirq.H.on_each(*omega_sigma_qubs_p)
+        yield cirq.H.on_each(*omega_sigma_qubs_q)
 
         qrom_gate = qrom.QROM(
             [self.alts, self.keeps, self.rp_signs],
@@ -750,9 +735,9 @@ class MTD_DF(cft.PrepareOracle):
         yield qrom_gate.on_registers(selection0=r_qubs, selection1=q_qubs, target0=omega_alt_qubs_q, target1=omega_keep_qubs_q,
             target2=theta_q_qubs)
 
-        yield arithmetic_gates.LessThanEqualGate(self.omega_mu, self.omega_mu).on(
+        yield arithmetic_gates.LessThanEqualGate(self.mu, self.mu).on(
             *omega_keep_qubs_p, *omega_sigma_qubs_p, *omega_less_than_equal_qubs_p)
-        yield arithmetic_gates.LessThanEqualGate(self.omega_mu, self.omega_mu).on(
+        yield arithmetic_gates.LessThanEqualGate(self.mu, self.mu).on(
             *omega_keep_qubs_q, *omega_sigma_qubs_q, *omega_less_than_equal_qubs_q)
 
         yield cirq.Z.on_each(*theta_p_qubs, *theta_q_qubs)
@@ -768,11 +753,18 @@ class MTD_DF(cft.PrepareOracle):
         yield U_rp.on_registers(i=l_qubs, selection0=r_qubs, selection1=q_qubs, control=v_qubs)
 
 class MTD_THC(cft.PrepareOracle):
-    probability_epsilon : float
-    R : int
-    N : int
-    Omega_info : NDArray[float]
-    U_info : NDArray[float]
+    
+    def __init__(self, probability_epsilon : float,
+    R : int,
+    N : int,
+    Omega_info : NDArray[float],
+    U_info : NDArray[float]):
+
+        self.probability_epsilon = probability_epsilon
+        self.R = R
+        self.N = N
+        self.Omega_info = Omega_info
+        self.U_info = U_info
 
     @cached_property
     def selection_registers(self) -> cft.SelectionRegisters:
@@ -809,7 +801,7 @@ class MTD_THC(cft.PrepareOracle):
         rcal_dict = {}
         idx = 0
         for r1 in range(self.R):
-            for r2 in range(r1):
+            for r2 in range(r1+1):
                 rcal_dict[idx] = (r1,r2)
                 idx += 1
         alt_r1 = np.zeros_like(alt)
@@ -823,7 +815,7 @@ class MTD_THC(cft.PrepareOracle):
         self.alt_r1 = alt_r1
         self.alt_r2 = alt_r2
 
-        self.rcal_signs = np.array(np.where(Omega_info<0, 1, 0), dtype=int)
+        self.rcal_signs = np.array(np.where(np.array(Omega_info)<0, 1, 0), dtype=int)
 
         return self.mu
 
@@ -882,12 +874,12 @@ class MTD_THC(cft.PrepareOracle):
 
         omega_mu = self.omega_sigma_mu_bitsize
         #build prepare Omega circuit
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.R).on(*r1_qubs).controlled_by(*v_qubs)
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.R).on(*r2_qubs).controlled_by(*v_qubs)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.R, (1,)).on_registers(target=r1_qubs, controls=v_qubs)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.R, (1,)).on_registers(target=r2_qubs, controls=v_qubs)
         yield cirq.H.on_each(*omega_sigma_mu)
 
         con_gate = ContiguousRegisterGate(bitsize=self.omega_alternates_bitsize, target_bitsize=self.Rcal_bitsize)
-        yield con_gate.on(*r1_qubits, *r2_qubits, *contiguous).controlled_by(*v_qubs)
+        yield con_gate.on(*r1_qubits, *r2_qubits, *contiguous)
 
         qrom_gate = qrom.QROM(
             [self.alt_r1, self.alt_r2, self.keep, self.rcal_signs],
@@ -918,11 +910,18 @@ class MTD_THC(cft.PrepareOracle):
 
 
 class MTD_CP4(cft.PrepareOracle):
-    probability_epsilon : float
-    W : int
-    N : int
-    Omega_info : NDArray[float]
-    U_info : NDArray[float]
+    
+    def __init__(self, probability_epsilon : float,
+    W : int,
+    N : int,
+    Omega_info : NDArray[float],
+    U_info : NDArray[float]):
+
+        self.probability_epsilon = probability_epsilon
+        self.W = W
+        self.N = N
+        self.Omega_info = Omega_info
+        self.U_info = U_info
 
     @cached_property
     def selection_registers(self) -> cft.SelectionRegisters:
@@ -945,9 +944,9 @@ class MTD_CP4(cft.PrepareOracle):
     @cached_property
     def get_omega_prep(self) -> int:
         self.alt, self.keep, self.mu = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
-            lcu_coefficients=np.abs(Omega_info), epsilon=probability_epsilon)
+            lcu_coefficients=np.abs(self.Omega_info), epsilon=self.probability_epsilon)
         
-        self.w_signs = np.array(np.where(Omega_info<0, 1, 0), dtype=int)
+        self.w_signs = np.array(np.where(np.array(self.Omega_info)<0, 1, 0), dtype=int)
 
         return self.mu
 
@@ -970,10 +969,10 @@ class MTD_CP4(cft.PrepareOracle):
             omega_alt=self.omega_alternates_bitsize,
             omega_keep=self.omega_keep_bitsize,
             omega_less_than_equal=1,
-            theta_p=1)
+            theta=1)
     @cached_property
     def junk_registers(self) -> cft.Registers:
-        return cft.Registers.build(w=self.W_bitsize)
+        return merge_registers(cft.Registers.build(w=self.W_bitsize), self.omega_junk_registers)
 
     def decompose_from_registers(
         self,
@@ -993,17 +992,17 @@ class MTD_CP4(cft.PrepareOracle):
         less_than_equal = quregs["omega_less_than_equal"]
 
         #build prepare Omega circuit
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.W).on(*w_qubs).controlled_by(*v_qubs)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.W, (1,)).on_registers(target=w_qubs, controls=v_qubs)
         yield cirq.H.on_each(*sigma_mu)
 
         qrom_gate = qrom.QROM(
-            [self.alts, self.keeps, self.w_signs],
+            [np.array(self.alt), np.array(self.keep), self.w_signs],
             (self.W_bitsize,),
             (self.omega_alternates_bitsize, self.omega_keep_bitsize, 1),
             num_controls = 1
         )
         yield qrom_gate.on_registers(selection=w_qubs, target0=alt, target1=keep,target2=theta, control=v_qubs)
-        yield arithmetic_gates.LessThanEqualGate(self.mu, self.mu).on(*keep, *sigma, *less_than_equal)
+        yield arithmetic_gates.LessThanEqualGate(self.mu, self.mu).on(*keep, *sigma_mu, *less_than_equal)
         yield cirq.Z.on_each(*theta)
         yield swap_network.MultiTargetCSwap.make_on(control=less_than_equal, target_x=w_qubs, target_y=alt)
 
@@ -1019,13 +1018,22 @@ class MTD_CP4(cft.PrepareOracle):
 
 
 class MTD_MPS(cft.PrepareOracle):
-    probability_epsilon : float
-    A1 : int
-    A2 : int
-    A3 : int
-    N : int
-    Omega_info : NDArray[float]
-    U_info : NDArray[float]
+
+    def __init__(self,probability_epsilon : float,
+    A1 : int,
+    A2 : int,
+    A3 : int,
+    N : int,
+    Omega_info : NDArray[float],
+    U_info : NDArray[float]):
+
+        self.probability_epsilon = probability_epsilon
+        self.A1 = A1
+        self.A2 = A2
+        self.A3 = A3
+        self.N = N
+        self.Omega_info = Omega_info
+        self.U_info = U_info
 
     @cached_property
     def selection_registers(self) -> cft.SelectionRegisters:
@@ -1056,22 +1064,22 @@ class MTD_MPS(cft.PrepareOracle):
     @cached_property
     def get_omega_preps(self) -> int:
         self.alt_1, self.keep_1, self.mu_1 = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
-            lcu_coefficients=np.abs(Omega_info[0]), epsilon=probability_epsilon)
-        self.a1_signs = np.array(np.where(Omega_info[0]<0, 1, 0), dtype=int)
+            lcu_coefficients=np.abs(self.Omega_info[0]), epsilon=self.probability_epsilon)
+        self.a1_signs = np.array(np.where(np.array(self.Omega_info[0])<0, 1, 0), dtype=int)
 
         self.alt_2, self.keep_2, self.mu_2 = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
-            lcu_coefficients=np.abs(Omega_info[1]), epsilon=probability_epsilon)
-        self.a2_signs = np.array(np.where(Omega_info[1]<0, 1, 0), dtype=int)
+            lcu_coefficients=np.abs(self.Omega_info[1]), epsilon=self.probability_epsilon)
+        self.a2_signs = np.array(np.where(np.array(self.Omega_info[1])<0, 1, 0), dtype=int)
 
         self.alt_3, self.keep_3, self.mu_3 = cft.linalg.preprocess_lcu_coefficients_for_reversible_sampling(
-            lcu_coefficients=np.abs(Omega_info[2]), epsilon=probability_epsilon)
-        self.a3_signs = np.array(np.where(Omega_info[2]<0, 1, 0), dtype=int)
+            lcu_coefficients=np.abs(self.Omega_info[2]), epsilon=self.probability_epsilon)
+        self.a3_signs = np.array(np.where(np.array(self.Omega_info[2])<0, 1, 0), dtype=int)
 
         return (self.mu_1, self.mu_2, self.mu_3)
 
     @cached_property
     def sigma_mu_bitsizes(self) -> int:
-        return self.get_omega_prep
+        return self.get_omega_preps
 
     @cached_property
     def alternates_bitsizes(self) -> int:
@@ -1079,11 +1087,11 @@ class MTD_MPS(cft.PrepareOracle):
 
     @cached_property
     def keep_bitsizes(self) -> int:
-        return self.get_omega_prep
+        return self.get_omega_preps
 
     @cached_property
     def omega_junk_registers(self) -> cft.Registers:
-        (mu1, mu2, mu3) = self.get_omega_prep
+        (mu1, mu2, mu3) = self.get_omega_preps
         return cft.Registers.build(
             sigma_a1=mu1,
             sigma_a2=mu2,
@@ -1103,7 +1111,7 @@ class MTD_MPS(cft.PrepareOracle):
 
     @cached_property
     def junk_registers(self) -> cft.Registers:
-        return merge_registers(cft.Registers.build(a1=self.A1_bitsize, a2=self.A1_bitsize, a3=self.A1_bitsize),
+        return merge_registers(cft.Registers.build(a1=self.A1_bitsize, a2=self.A2_bitsize, a3=self.A3_bitsize),
             self.omega_junk_registers)
 
     def decompose_from_registers(
@@ -1132,37 +1140,37 @@ class MTD_MPS(cft.PrepareOracle):
         lte_a3 = quregs["lte_a3"]
 
         #build prepare Omega circuit
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.A1).on(*a1_qubs).controlled_by(*v_qubs)
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.A2).on(*a2_qubs).controlled_by(*v_qubs)
-        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.A3).on(*a3_qubs).controlled_by(*v_qubs)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.A1, (1,)).on_registers(target=a1_qubs, controls=v_qubs)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.A2, (1,)).on_registers(target=a2_qubs, controls=v_qubs)
+        yield prepare_uniform_superposition.PrepareUniformSuperposition(self.A3, (1,)).on_registers(target=a3_qubs, controls=v_qubs)
 
         yield cirq.H.on_each(*sigma_a1)
         yield cirq.H.on_each(*sigma_a2)
         yield cirq.H.on_each(*sigma_a3)
 
         qrom_gate_a1 = qrom.QROM(
-            [self.alt_a1, self.keep_a1, self.a1_signs],
+            [np.array(self.alt_1), np.array(self.keep_1), self.a1_signs],
             (self.A1_bitsize,),
-            (self.A1.bitsize, self.mu_1, 1),
+            (self.A1_bitsize, self.mu_1, 1),
             num_controls = 1
         )
-        yield qrom_gate.on_registers(selection=a1_qubs, target0=alt_a1, target1=keep_a1, target2=theta_a1, control=v_qubs)
+        yield qrom_gate_a1.on_registers(selection=a1_qubs, target0=alt_a1, target1=keep_a1, target2=theta_a1, control=v_qubs)
         
         qrom_gate_a2 = qrom.QROM(
-            [self.alt_a2, self.keep_a2, self.a2_signs],
+            [np.array(self.alt_2), np.array(self.keep_2), self.a2_signs],
             (self.A2_bitsize,),
-            (self.A2.bitsize, self.mu_2, 1),
+            (self.A2_bitsize, self.mu_2, 1),
             num_controls = 1
         )
-        yield qrom_gate.on_registers(selection=a2_qubs, target0=alt_a2, target1=keep_a2, target2=theta_a2, control=v_qubs)
+        yield qrom_gate_a2.on_registers(selection=a2_qubs, target0=alt_a2, target1=keep_a2, target2=theta_a2, control=v_qubs)
         
         qrom_gate_a3 = qrom.QROM(
-            [self.alt_a3, self.keep_a3, self.a3_signs],
+            [np.array(self.alt_3), np.array(self.keep_3), self.a3_signs],
             (self.A3_bitsize,),
-            (self.A3.bitsize, self.mu_3, 1),
+            (self.A3_bitsize, self.mu_3, 1),
             num_controls = 1
         )
-        yield qrom_gate.on_registers(selection=a3_qubs, target0=alt_a3, target1=keep_a3, target2=theta_a3, control=v_qubs)
+        yield qrom_gate_a3.on_registers(selection=a3_qubs, target0=alt_a3, target1=keep_a3, target2=theta_a3, control=v_qubs)
               
 
         yield arithmetic_gates.LessThanEqualGate(self.mu_1, self.mu_1).on(*keep_a1, *sigma_a1, *lte_a1)

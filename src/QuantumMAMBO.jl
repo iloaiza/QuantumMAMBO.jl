@@ -1,5 +1,6 @@
 module QuantumMAMBO
 	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse
+	using ITensors
 
 	src_dir = @__DIR__
 	UTILS_dir = src_dir * "/UTILS/"
@@ -21,6 +22,7 @@ module QuantumMAMBO
 	function __init__()
 		include(UTILS_dir * "py_utils.jl")
 		include(UTILS_dir * "circuits.jl")
+		include(UTILS_dir * "cp4.jl")
 	end
 	include(UTILS_dir * "majorana.jl")
 	include(UTILS_dir * "qubit.jl")
@@ -29,6 +31,7 @@ module QuantumMAMBO
 	include(UTILS_dir * "trotter.jl")
 	include(UTILS_dir * "projectors.jl")
 	include(UTILS_dir * "schmidt.jl")
+	include(UTILS_dir * "mps.jl")
 
 	if @isdefined myid
 		include(UTILS_dir * "parallel.jl")
