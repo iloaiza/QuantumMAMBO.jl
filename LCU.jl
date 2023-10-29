@@ -23,7 +23,8 @@ println("CP4")
 prep_op, sel_op = QM.MTD_circuit(H, "CP4")
 
 println("MPS")
-prep_op, sel_op = QM.MTD_circuit(H, "MPS")
+println("MPS decomposition not working currently, needs to be fixed...")
+#prep_op, sel_op = QM.MTD_circuit(H, "MPS")
 
 println("\nRunning SELECT-based circuits")
 
