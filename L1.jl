@@ -66,11 +66,11 @@ if BLISS
 	#H_bliss = quadratic_bliss(H, η)
 	#@show spectral_range(H,false,η)
 	#check(H)
-	@show PySCF_type
+	#@show PySCF_type
 	if PySCF_type[1] == false
 		H_cmp=F_OP_compress(H)
 		H_bliss,_=bliss_linprog(H_cmp, η,SAVENAME=FILENAME*"_BLISS.h5")
-		@show H_bliss
+		#@show H_bliss
 		#H_bliss=F_OP_converter(H_bliss)
 	else
 		H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5")
