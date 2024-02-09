@@ -599,5 +599,76 @@ function to_CSA_SD(F :: F_FRAG)
 	end
 end
 
+function F_OP_converter(F::F_OP)
+	obt=zeros(2*F.N,2*F.N)
+	tbt=zeros(2*F.N,2*F.N,2*F.N,2*F.N)
+	for sigma in 1:2
+		for i in 1:F.N
+			for j in 1:F.N
+				obt[2*i-mod(sigma,2), 2*j-mod(sigma,2)]=F.mbts[2][sigma,i,j]
+			end
+		end
+	end
+	for sigma in 1:4
+		i=0
+		j=0
+		if sigma<=2
+			i=1
+		end
+		if sigma==1 || sigma==3
+			j=1
+		end
+		for p in 1:F.N
+			for q in 1:F.N
+				for r in 1:F.N
+					for s in 1:F.N
+						tbt[2*p-i, 2*q-i,2*r-j,2*s-j]=F.mbts[3][sigma,p,q,r,s]
+					end
+				end
+			end
+		end
+	end
+	return F_OP((F.mbts[1],obt,tbt))
+end
 
+function F_OP_compress(F::F_OP)
+	N=div(F.N,2)
+	obt=zeros(2,N,N)
+	tbt=zeros(4,N,N,N,N)
+	
+	align=[1,4]
+	anti=[2,3]
+	
+	for i in 1:F.N
+		for j in 1:F.N
+			sigma=2-mod(i,2)
+			if sigma==2-mod(j,2)
+				obt[sigma,ceil(Int64,i/2),ceil(Int64,j/2)]=F.mbts[2][i,j]
+			end
+		end
+	end
+	for p in 1:F.N
+		for q in 1:F.N
+			for r in 1:F.N
+				for s in 1:F.N
+					sigma=2-mod(p,2)
+					tau=2-mod(r,2)
+					if sigma==tau
+						if sigma==2-mod(q,2) && tau==2-mod(s,2)
+							tbt[align[sigma],ceil(Int64,p/2),ceil(Int64,q/2),ceil(Int64,r/2),ceil(Int64,s/2)]=F.mbts[3][p,q,r,s]
+						end
+					else
+						if sigma==2-mod(q,2) && tau==2-mod(s,2)
+							tbt[anti[sigma],ceil(Int64,p/2),ceil(Int64,q/2),ceil(Int64,r/2),ceil(Int64,s/2)]=F.mbts[3][p,q,r,s]
+						end
+					end
+				end
+			end
+		end
+	end
+	
+	
+	return F_OP((F.mbts[1],obt,tbt))
+end
+	
 
