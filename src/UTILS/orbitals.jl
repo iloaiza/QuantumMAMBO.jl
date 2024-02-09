@@ -1,4 +1,5 @@
 #orbital optimization routines
+using Optim
 
 function orbital_l1_optimizer(F :: F_OP; verbose=false, ret_op = true, do_Givens=OO_GIVENS)
 	#finds orbital rotation that minimizes Pauli l1-norm of fermionic operator
@@ -21,10 +22,10 @@ function orbital_l1_optimizer(F :: F_OP; verbose=false, ret_op = true, do_Givens
 
 	if verbose
 		@show ini_cost
-		@time sol = optimize(cost, x0, BFGS())
+		@time sol = Optim.optimize(cost, x0, BFGS())
 		@show sol.minimum
 	else
-		sol = optimize(cost, x0, BFGS())
+		@time sol = Optim.optimize(cost, x0, BFGS())
 	end
 
 	U.θs .= sol.minimizer
