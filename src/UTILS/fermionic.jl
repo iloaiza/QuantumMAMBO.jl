@@ -459,7 +459,14 @@ function ob_correction(F :: F_OP; return_op=false)
 	if F.spin_orb
 		obt = sum([F.mbts[3][:,:,r,r] for r in 1:F.N])
 	else
-		obt = 2*sum([F.mbts[3][:,:,r,r] for r in 1:F.N])
+		if size(F.mbts[2],1)==size(F.mbts[3],1)
+			obt=2*sum([F.mbts[3][:,:,r,r] for r in 1:F.N])
+		else
+			obt=zeros(2,F.N,F.N)
+			
+			obt[1,:,:] .= 2*sum([F.mbts[3][1,:,:,r,r] for r in 1:F.N])
+			obt[2,:,:] .= 2*sum([F.mbts[3][4,:,:,r,r] for r in 1:F.N])
+		end
 	end
 	
 	if return_op
