@@ -1,8 +1,31 @@
-function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING; kwargs...)
+function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING)
 	#loads (or generates and saves) Hamiltonian in FILENAME corresponding to mol_name
 	if DO_SAVE && isfile(FILENAME*".h5")
+		
 		fid = h5open(FILENAME*".h5", "cw")
-		if haskey(fid, "MOLECULAR_DATA")
+		
+		
+		
+		if haskey(fid, "eri")
+			obt=read(fid["h0"])
+			tbt=read(fid["eri"])
+			hconst=read(fid["ecore"])
+			H=eri_to_F_OP(obt, tbt, hconst)
+			close(fid)
+			η=50
+		
+		
+		elseif haskey(fid,"one_body_tensor")
+			obt=read(fid["one_body_tensor"])
+			tbt=read(fid["two_body_tensor"])
+			hconst=0
+			H=F_OP(([hconst],obt,tbt))
+			close(fid)
+			η=46
+		
+			
+			
+		elseif haskey(fid, "MOLECULAR_DATA")
 			println("Loading molecular data from $FILENAME.h5")
 			MOL_DATA = fid["MOLECULAR_DATA"]
 			h_const = read(MOL_DATA,"h_const")
@@ -11,8 +34,10 @@ function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAV
 			η = read(MOL_DATA,"eta")
 			close(fid)
 			H = F_OP((h_const,obt,tbt))
+			
 		else
-			H, η = obtain_H(mol_name; kwargs...)
+			H, η = localized_H_from_mol_name(mol_name)
+			#H, η = obtain_H(mol_name)
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			if haskey(fid, "MOLECULAR_DATA")
 				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
@@ -29,7 +54,8 @@ function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAV
 			close(fid)
 		end
 	else 
-		H, η = obtain_H(mol_name; kwargs...)
+		H, η = localized_H_from_mol_name(mol_name)
+		#H, η = obtain_H(mol_name)
 		if DO_SAVE
 			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
 			fid = h5open(FILENAME*".h5", "cw")
@@ -299,12 +325,11 @@ end
 function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO = true,
 			 DO_SQRT = false, max_frags = 10000, verbose=true, COUNT=false, DO_TROTTER = false,
 			 DO_MHC = true, DO_MTD_CP4 = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
-			 DO_FC = true, SYM_RED = true, DO_THC = false, FOCK_BOUND=true)
+			 DO_FC = true, SYM_RED = true, DO_THC = false,bliss=false,compress=false,spin_symmetry=true,rohf=false)
 	# Obtain 1-norms for different LCU methods. COUNT=true also counts number of unitaries in decomposition
 	# CSA: Cartan sub-algebra decomposition
 	# DF: Double Factorization
 	# ΔE: Exact lower bound from diagonalization of H
-	# FOCK_BOUND: (efficient) computation of lower bound for ΔE using Fock matrix
 	# AC: Anticommuting grouping
 	# OO: Orbital rotation technique
 	# SQRT: obtain square-root lower bound for non-optimal factorization methods (i.e. CSA)
@@ -322,7 +347,22 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 
 	METHODS = []
 	Λs = []
-
+	
+	#@show H
+	
+	if compress==true
+		H_cmp=F_OP_compress(H)
+		@show PAULI_L1(H_cmp)
+	else
+		@show PAULI_L1(H)
+	end
+	
+	if spin_symmetry==false && rohf==false && (bliss==true || compress==false)
+		H=F_OP_converter(H)
+	end
+	
+	
+	
 	if DO_ΔE
 		println("Obtaining 1-norm lower bound")
 		if SAVELOAD
@@ -339,14 +379,6 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@show λ_min
 		push!(METHODS, "ΔE/2")
 		push!(Λs, λ_min)
-	end
-
-	if FOCK_BOUND
-		println("Calculating lower bound for ΔE/2 using Fock matrix...")
-		@time λ_fock = Fock_bound(H)
-		@show λ_fock
-		push!(METHODS, "Fock")
-		push!(Λs, λ_fock)
 	end
 
 	if SYM_RED
@@ -478,9 +510,9 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 
 	if DO_MHC
 		println("\nMHC:")
-		@time λ2_MHC = iterative_schmidt(H.mbts[3], count=COUNT, tol=1e-6)
+		@time λ2_MHC = split_schmidt(H.mbts[3], count=COUNT, tol=1e-6)
 		@show λMTD = λ1 + λ2_MHC
-		push!(METHODS, "MTD-SVD")
+		push!(METHODS, "MTD-1^4")
 		push!(Λs, λMTD)
 	end
 
@@ -502,8 +534,6 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 			λ2_CP4_GREEDY = [λ2_CP4_GREEDY, length(CP4_GREEDY_FRAGS)]
 		end
 		@show λ1 + λ2_CP4_GREEDY
-		push!(METHODS, "MTD-1^4")
-		push!(Λs, λ1 + λ2_CP4_GREEDY)
 	end
 
 	if DO_THC
@@ -534,12 +564,12 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 			#@time αs_FC = parallel_autocorr_trotter(Hmat, FC_mats)
 			#@show αs_FC
 			@time αψ, αf, αT, αT4 = parallel_all_trotter(Hmat, FC_mats)
-			@show αψ
-			@show αf
-			println("αT:")
+			#@show αψ
+			#@show αf
+			#=println("αT:")
 			display(αT)
 			println("αT4:")
-			display(αT4)
+			display(αT4)=#
 		end
 	end
 	
