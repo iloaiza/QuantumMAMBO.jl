@@ -62,23 +62,16 @@ end
 if BLISS
 	println("\n\n Starting block-invariant symmetry shift (BLISS) routine...")
 	println("BLISS optimization...")
-	#H_bliss = quadratic_bliss_optimizer(H, η, verbose=verbose, SAVENAME=FILENAME*"_BLISS.h5")
-	#H_bliss = quadratic_bliss(H, η)
-	#@show spectral_range(H,false,η)
-	#check(H)
-	#@show PySCF_type
+	
 	if PySCF_type[1] == false
 		H_cmp=F_OP_compress(H)
 		H_bliss,_=bliss_linprog(H_cmp, η,SAVENAME=FILENAME*"_BLISS.h5")
-		#@show H_bliss
-		#H_bliss=F_OP_converter(H_bliss)
+		
+		
 	else
 		H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5")
 	end
-	#@show spectral_range(H_bliss,false,η)
-	#check(H_bliss)
-	#@show spectral_range(H_bliss,true,η)
-	#H_bliss=F_OP_converter(H_bliss)
+	
 	println("Running 1-norm routines...")
 	RUN_L1(H_bliss, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, LATEX_PRINT = TABLE_PRINT, 
 		DO_FC = DO_FC, SYM_RED=DO_TROTTER, DO_AC = DO_AC, DO_OO = DO_OO, DO_THC = DO_THC, 
