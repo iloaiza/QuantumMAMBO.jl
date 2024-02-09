@@ -20,7 +20,7 @@ const OO_reps = 10 #how many parallel repetitions are done for orbital optimizat
 const ROHF=false #when true, Restricted Open Shell Hartree-Fock is used for Open shell systems; when false, Unrestricted Hartree-Fock is used.
 const closed_shell=false #set to true if the molecule is closed shell
 const Charge=0 #denotes the net electronic charge of the species. Used for calculation of Hamiltonian through PySCF
-const Spin=2 #denotes 2 * total spin angular momentum in the species. Used for calculation of Hamiltonian through PySCF. Please note that Spin = 2S (S=total spin) and NOT 2S+1
+const Spin=0 #denotes 2 * total spin angular momentum in the species. Used for calculation of Hamiltonian through PySCF. Please note that Spin = 2S (S=total spin) and NOT 2S+1
 
 
 #Saved Hamiltonians
