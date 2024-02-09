@@ -66,7 +66,7 @@ function H_from_xyz(xyz_string; kwargs...)
 	return F_OP(2,mbts,[true,true,true],false,size(obt)[1]), pyconvert(Int64, num_elecs)
 end
 
-unction localized_H_from_xyz(xyz_string; kwargs...)
+function localized_H_from_xyz(xyz_string; kwargs...)
 	#returns fermionic operator of H in orbitals and number of electrons
 	
 	h_ferm, num_elecs = localized_xyz_OF_hamiltonian(xyz_string; kwargs...)
