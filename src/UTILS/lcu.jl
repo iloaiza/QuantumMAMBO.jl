@@ -303,36 +303,74 @@ function PAULI_L1(F :: F_OP; count=false)
 		error("Trying to calculate Pauli cost for fermionic operator with more than 2-body terms, not implemented!")
 	end
 	
-	if F.filled[2] && F.filled[3]
-		obt_mod = F.mbts[2] + ob_correction(F)
-		λ1 = sum(abs.(obt_mod))
-	elseif F.filled[2]
-		obt_mod = F.mbts[2]
-		λ1 = sum(abs.(obt_mod))
-	elseif F.filled[3]
-		obt_mod = ob_correction(F)
-		λ1 = sum(abs.(obt_mod))
-	else
-		λ1 = 0
-	end
+	if size(F.mbts[2],1)==size(F.mbts[3],1)
 	
-	if F.filled[3]
-		λ2 = 0.5 * sum(abs.(F.mbts[3]))
-		for r in 1:F.N
-			for p in r+1:F.N
-				for q in 1:F.N
-					for s in q+1:F.N
-						λ2 += abs(F.mbts[3][p,q,r,s] - F.mbts[3][p,s,r,q])
+		if F.filled[2] && F.filled[3]
+			obt_mod = F.mbts[2] + ob_correction(F)
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[2]
+			obt_mod = F.mbts[2]
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[3]
+			obt_mod = ob_correction(F)
+			λ1 = sum(abs.(obt_mod))
+		else
+			λ1 = 0
+		end
+		
+		if F.filled[3]
+			λ2 = 0.5 * sum(abs.(F.mbts[3]))
+			for r in 1:F.N
+				for p in r+1:F.N
+					for q in 1:F.N
+						for s in q+1:F.N
+							λ2 += abs(F.mbts[3][p,q,r,s] - F.mbts[3][p,s,r,q])
+						end
 					end
 				end
 			end
+		else
+			λ2 = 0
 		end
 	else
-		λ2 = 0
+		if F.filled[2] && F.filled[3]
+			obt_mod = F.mbts[2] + ob_correction(F)
+			
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[2]
+			obt_mod = F.mbts[2]
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[3]
+			obt_mod = ob_correction(F)
+			λ1 = sum(abs.(obt_mod))
+		else
+			λ1 = 0
+		end
+		λ1=λ1/2
+		if F.filled[3]
+			λ2 = 0.25 * sum(abs.(F.mbts[3][2:3,:,:,:,:]))
+			arr_align=[1,4]
+			for sigma in arr_align
+				for r in 1:F.N
+					for p in r+1:F.N
+						for q in 1:F.N
+							for s in q+1:F.N
+								
+								λ2 += 0.5*abs.(F.mbts[3][sigma,p,q,r,s] - F.mbts[3][sigma,p,s,r,q])
+							end
+						end
+					end
+				end
+			end
+		else
+			λ2 = 0
+		end
 	end
+		
+		
 
 
-	return λ1+λ2
+	return λ1+λ2 
 end
 
 function PAULI_L2(F::F_OP; count=false)
