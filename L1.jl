@@ -1,5 +1,5 @@
 # OPTIONS FOR WHAT ROUTINES SHOULD BE RAN
-DO_CSA = false #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
+DO_CSA = true #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
 DO_DF = false #perform Double-Factorization (DF) decomposition of Hamiltonian
 DO_ΔE = false #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
 DO_AC = true #do anticommuting grouping technique
@@ -26,7 +26,7 @@ Pkg.activate("./")
 Pkg.instantiate()
 Pkg.resolve()
 
-using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, quadratic_bliss, bliss_linprog, quadratic_bliss_optimizer,F_OP_converter,F_OP_compress,PAULI_L1, spectral_range,check,PySCF_type,closed_shell, ROHF, Charge, Spin
+using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, quadratic_bliss, bliss_linprog, quadratic_bliss_optimizer,F_OP_converter,F_OP_compress,PAULI_L1, PySCF_type,closed_shell, ROHF, Charge, Spin
 
 
 ###### SAVELOAD ROUTINES FOR MOLECULAR HAMILTONIAN #######
