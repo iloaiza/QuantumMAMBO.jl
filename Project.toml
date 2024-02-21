@@ -1,6 +1,6 @@
 name = "QuantumMAMBO"
 uuid = "e290813f-b153-47cd-bc0b-49e404587c69"
-authors = ["Ignacio Loaiza <ignacio.loaiza@mail.utoronto.ca>", "Aritra Brahmachari <aritrabrahmachari@gmail.com>"]
+authors = ["Ignacio Loaiza <ignacio.loaiza@mail.utoronto.ca>", "Aritra Sankar Brahmachari <aritrabrahmachari@gmail.com>"]
 version = "1.2.0"
 
 [deps]
