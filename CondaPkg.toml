@@ -5,8 +5,8 @@ numpy = ""
 sympy = ""
 
 [pip.deps]
-cirq = ""
-cirq-ft = ""
+cirq = "==1.2"
+cirq-ft = "==1.2"
 openfermion = ""
 openfermionpyscf = ""
 TensorFox = ""
