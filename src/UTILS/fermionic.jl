@@ -464,8 +464,8 @@ function ob_correction(F :: F_OP; return_op=false)
 		else
 			obt=zeros(2,F.N,F.N)
 			
-			obt[1,:,:] .= 2*sum([F.mbts[3][1,:,:,r,r] for r in 1:F.N])
-			obt[2,:,:] .= 2*sum([F.mbts[3][4,:,:,r,r] for r in 1:F.N])
+			obt[1,:,:] .= sum([F.mbts[3][1,:,:,r,r] for r in 1:F.N])+sum([F.mbts[3][2,:,:,r,r] for r in 1:F.N])
+			obt[2,:,:] .= sum([F.mbts[3][3,:,:,r,r] for r in 1:F.N])+sum([F.mbts[3][4,:,:,r,r] for r in 1:F.N])
 		end
 	end
 	
