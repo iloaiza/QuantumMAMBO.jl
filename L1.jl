@@ -13,6 +13,7 @@ INT = false #do interaction picture optimization routines
 verbose = true #verbose for sub-routines
 COUNT = true #whether total number of unitaries should be counted
 BLISS = true #whether block-invariant symmetry shift routine is done
+GHOST_ORB=true #whether Ghost Orbitals are introduced
 DO_TROTTER = false #whether Trotter α is calculated, requires parallel routines
 DO_FC = false #whether fully-commuting routine is done
 TABLE_PRINT = true #whether final 1-norms are printed for copy-pasting in LaTeX table
@@ -26,7 +27,7 @@ Pkg.activate("./")
 Pkg.instantiate()
 Pkg.resolve()
 
-using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, quadratic_bliss, bliss_linprog, quadratic_bliss_optimizer,F_OP_converter,F_OP_compress,PAULI_L1, PySCF_type,closed_shell, ROHF, Charge, Spin
+using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, quadratic_bliss, bliss_linprog, quadratic_bliss_optimizer,F_OP_converter,F_OP_compress,PAULI_L1, PySCF_type,closed_shell, ROHF, Charge, Spin,ghost_orbital
 
 
 ###### SAVELOAD ROUTINES FOR MOLECULAR HAMILTONIAN #######
@@ -76,6 +77,27 @@ if BLISS
 	RUN_L1(H_bliss, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, LATEX_PRINT = TABLE_PRINT, 
 		DO_FC = DO_FC, SYM_RED=DO_TROTTER, DO_AC = DO_AC, DO_OO = DO_OO, DO_THC = DO_THC, 
 		DO_SQRT = DO_SQRT, DO_TROTTER=DO_TROTTER, DO_MHC = DO_MHC, DO_MTD_CP4 = DO_MTD_CP4, COUNT = COUNT, verbose=verbose, name=FILENAME*"_BLISS.h5",bliss=true,spin_symmetry=closed_shell[1],rohf=ROHF[1])
+end
+
+if GHOST_ORB
+	println("\n\n Introducing Ghost Orbital/ Auxilliary Orbital ...")
+	
+	
+	if PySCF_type[1] == false
+		H_cmp=F_OP_compress(H)
+		
+		H_ghost,_=ghost_orbital(H_cmp, η,SAVENAME=FILENAME*"_GHOST.h5")
+		
+	else
+		#H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5")
+		H_ghost,_=ghost_orbital(H, η,SAVENAME=FILENAME*"_GHOST.h5")
+		
+	end
+	
+	println("Running 1-norm routines...")
+	#=RUN_L1(H_ghost, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, LATEX_PRINT = TABLE_PRINT, 
+		DO_FC = DO_FC, SYM_RED=DO_TROTTER, DO_AC = DO_AC, DO_OO = DO_OO, DO_THC = DO_THC, 
+		DO_SQRT = DO_SQRT, DO_TROTTER=DO_TROTTER, DO_MHC = DO_MHC, DO_MTD_CP4 = DO_MTD_CP4, COUNT = COUNT, verbose=verbose, name=FILENAME*"_BLISS.h5",bliss=true,spin_symmetry=closed_shell[1],rohf=ROHF[1])=#
 end
 
 if BLISS && INT
