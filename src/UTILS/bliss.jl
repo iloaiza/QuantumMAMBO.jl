@@ -1204,7 +1204,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    
 end
 
-function ghost_orbital(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
+function ghost_orbital(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"GHOST.h5")
 	#@warn "Linear programming function under construction, not working!"
 	if F.spin_orb
 		error("BLISS not defined for spin-orb=true!")
