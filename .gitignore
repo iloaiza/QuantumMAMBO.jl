@@ -35,3 +35,4 @@ SAVED/*.h5
 
 # Ignore the following files
 command_notes.txt
+lanczos_trials.jl
