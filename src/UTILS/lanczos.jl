@@ -9,7 +9,9 @@ sdstate_lanczos = pyimport("module_sdstate.lanczos_utils")
     where the one body tensor is ``h_{ij}`` and the two body tensor is ``g_{ijkl}``.
     Note the absence of the factor of 0.5 in the two body term.
 
-    **NOTE**: This function is currently not passing the tests.
+    **NOTE**: This function is currently not passing the tests and seg faults.
+    Please use the python function directly; this function passes the unit tests: 
+        sdstate_lanczos.lanczos_total_range
     Args:
         one_body_tensor (Array{Float64,2}): The one body tensor.
         two_body_tensor (Array{Float64,4}): The two body tensor, chemist notation.
@@ -46,7 +48,9 @@ end
     ``H = \\sum_{ij} h_{ij} a_i^† a_j + \\sum_{ijkl} g_ijkl a_i^† a_j a_k^† a_l``
     where the one body tensor is ``h_{ij}`` and the two body tensor is ``g_{ijkl}``.
     Note the absence of the factor of 0.5 in the two body term.
-    **NOTE**: This function is currently not passing the tests.
+    **NOTE**: This function is currently not passing the tests and seg faults.
+    Please use the python function directly; this function passes the unit tests: 
+        sdstate_lanczos.lanczos_range
     Args:
         one_body_tensor (Array{Float64,2}): The one body tensor.
         two_body_tensor (Array{Float64,4}): The two body tensor, chemist notation.
