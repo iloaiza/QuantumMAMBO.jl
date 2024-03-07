@@ -1,11 +1,7 @@
 name = "QuantumMAMBO"
 uuid = "e290813f-b153-47cd-bc0b-49e404587c69"
-authors = [
-    "Ignacio Loaiza <ignacio.loaiza@mail.utoronto.ca>",
-    "Aritra Brahmachari <aritrabrahmachari@gmail.com>",
-    "Joshua T. Cantin <joshua.cantin@utoronto.ca>",
-]
-version = "1.2.1"
+authors = ["Ignacio Loaiza <ignacio.loaiza@mail.utoronto.ca>", "Aritra Brahmachari <aritrabrahmachari@gmail.com>", "Joshua T. Cantin <joshua.cantin@utoronto.ca>"]
+version = "1.2.2"
 
 [deps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
@@ -22,6 +18,7 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LuxurySparse = "d05aeea4-b7d4-55ac-b691-9e7fabb07ba2"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 SharedArrays = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
@@ -32,14 +29,17 @@ DistributedArrays = "0.6.6"
 Einsum = "0.4.1"
 HDF5 = "0.15.7 - 0.17.1"
 HiGHS = "1.4.3"
+ITensors = "0.3.47"
 Ipopt = "1.1.0"
 JuMP = "1.8.1"
 LuxurySparse = "0.7.4"
 Optim = "1.7.4"
 PythonCall = "0.9.12"
 julia = "1.7 - 1.10"
-ITensors = "0.3.47"
-#Distributed = "1.7-1.10"
-#LinearAlgebra = "1.7-1.10"
-#SharedArrays = "1.7-1.10"
-#SparseArrays = "1.7-1.10"
+
+[extras]
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "SafeTestsets"]
