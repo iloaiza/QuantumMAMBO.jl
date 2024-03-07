@@ -10,7 +10,8 @@ sdstate_lanczos = pyimport("module_sdstate.lanczos_utils")
     Note the absence of the factor of 0.5 in the two body term.
 
     **NOTE**: This function is currently not passing the tests and seg faults.
-    Please use the python function directly; this function passes the unit tests: 
+    It is recommended to use sdstate_lanczos.lanczos_range; see lanczos_range in this file
+    The python function itself passes the unittests for small systems and no multiprocessing: 
         sdstate_lanczos.lanczos_total_range
     Args:
         one_body_tensor (Array{Float64,2}): The one body tensor.
