@@ -1,4 +1,7 @@
 #routines for finding fluid-body symmetry shifts
+
+using Optim
+
 function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)+1) - 1)/2), spin_orb=false)
 	#builds S symmetry shift corresponding to S = s0+s1+s2
 	obt = zeros(N, N)
@@ -29,48 +32,91 @@ function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)
 end
 
 function quadratic_bliss_params_to_F_OP(u1, u2, ovec, η, N)
-	
-	omat = zeros(N,N)
-	idx=1
-	for i=1:N
-		for j=i:N
-			omat[i,j]=ovec[idx]
-			omat[j,i]=ovec[idx]
-			idx+=1
-		end
-	end
-	
-	
-	
-	Sconst = [-η - η^2]
-
-	Sobt = zeros(N, N)
-	Tobt = zeros(N, N)
-	for i in 1:N
-		Sobt[i,i] = u1
-		for j in 1:N
-			Tobt[i,j] = -2*η*omat[i,j]
-		end
-	end
-
-	Stbt = zeros(N, N, N, N)
-	Ttbt = zeros(N, N, N, N)
-
-	for i in 1:N
-		for j in 1:N
-			Stbt[i,i,j,j] = u2
-			for k in 1:N
-				
-				Ttbt[i,j,k,k] += omat[i,j]
-				Ttbt[k,k,i,j] += omat[i,j]
+	if length(ovec)==Int(N*(N+1)/2)
+		omat = zeros(N,N)
+		idx=1
+		for i=1:N
+			for j=i:N
+				omat[i,j]=ovec[idx]
+				omat[j,i]=ovec[idx]
+				idx+=1
 			end
 		end
+		
+		
+		
+		Sconst = [-η - η^2]
+
+		Sobt = zeros(N, N)
+		Tobt = zeros(N, N)
+		for i in 1:N
+			Sobt[i,i] = u1
+			for j in 1:N
+				Tobt[i,j] = -2*η*omat[i,j]
+			end
+		end
+
+		Stbt = zeros(N, N, N, N)
+		Ttbt = zeros(N, N, N, N)
+
+		for i in 1:N
+			for j in 1:N
+				Stbt[i,i,j,j] = u2
+				for k in 1:N
+					
+					Ttbt[i,j,k,k] += omat[i,j]
+					Ttbt[k,k,i,j] += omat[i,j]
+				end
+			end
+		end
+
+		S = F_OP((Sconst, Sobt, Stbt))
+		T = F_OP(([0], Tobt, Ttbt))
+		ST = S+T
+		return ST
+	else
+		idx=1
+		O=zeros(2,N,N)
+		for s=1:2
+			for i=1:N
+				for j=i:N
+					O[s,i,j]=ovec[idx]
+					O[s,j,i]=ovec[idx]
+					idx+=1
+				end
+			end
+		end
+		
+		
+	    Ne,Ne2 = symmetry_builder(N)
+	    
+	    
+	    s2_tbt=zeros(4,N,N,N,N)
+	    for i=1:4
+	    	s2_tbt[i,:,:,:,:] = u2 * Ne2.mbts[3]
+	    end
+	   
+	    for sigma=1:4
+		    for i in 1:N
+		    	for j in 1:N
+		    		for k in 1:N
+		    			s2_tbt[sigma,i,j,k,k] += 2*O[div(sigma-1,2)+1,i,j]
+		    			#s2_tbt[sigma,k,k,i,j] += O[div(sigma-1,2)+1,i,j]
+		    			
+		    		end
+		    	end
+		    end
+	    end
+	    
+	    s1_obt=zeros(2,N,N)
+	    for i=1:2
+	    	s1_obt[i,:,:] = u1*Ne.mbts[2] .- 2η*O[i,:,:]
+	    end
+	    
+	    S=F_OP(([0],s1_obt,s2_tbt))
+	    return S
 	end
 
-	S = F_OP((Sconst, Sobt, Stbt))
-	T = F_OP(([0], Tobt, Ttbt))
-	ST = S+T
-	return ST
 end
 
 
@@ -340,7 +386,11 @@ function quadratic_bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVIN
 		end
 		close(fid)
 	end=#
-	L = Int(F.N*(F.N+1)/2)
+	if size(F.mbts[2],1)==size(F.mbts[3],1)
+		L = Int(F.N*(F.N+1)/2)
+	else
+		L= F.N*(F.N+1)
+	end
 	x0 = zeros(L + 2)
 	
 	
@@ -356,7 +406,7 @@ function quadratic_bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVIN
 	if verbose
 		println("Starting 1-norm cost:")
 		@show cost(x0)
-		@time sol = optimize(cost,  x0, BFGS(), Optim.Options(show_trace=false, extended_trace=true, show_every=1, f_tol = 1e-3))
+		@time sol = Optim.optimize(cost,  x0, BFGS(), Optim.Options(show_trace=false, extended_trace=true, show_every=1, f_tol = 1e-3))
 		println("Final 1-norm cost:")
 		@show sol.minimum
 	else
@@ -568,7 +618,7 @@ function symmetrize_O_ij(o_opt,N)
 end
 
 function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
-	
+	@warn "Linear programming function under construction, not working!"
 	if F.spin_orb
 		error("BLISS not defined for spin-orb=true!")
 	end
@@ -1056,582 +1106,6 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    λ3 = zeros(ν3_len)
 	    idx = 0
 	    arr_align=[1,4]
-	    for s in arr_align
-	    for i in 1:F.N
-		for j in 1:F.N
-			for k in 1:i-1
-				for l in j+1:F.N
-	    				idx += 1
-	    				λ3[idx] = F.mbts[3][s,i,j,k,l] - F.mbts[3][s,i,l,k,j]
-	    			end
-	    		end
-	    	end
-	    end
-	    end
-	    
-	    τ_31 = zeros(ν3_len)
-	    idx = 0
-	    for s in arr_align
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in j+1:F.N
-	    				idx += 1
-	    				
-	    				if i == l && k == j
-	    					τ_31[idx] += 1
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	    end
-	    
-	    
-
-	    T3 = zeros(Int64(ν3_len/2),F.N^2)
-	    idx = 0
-	    
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in j+1:F.N
-	    				idx += 1
-	    				
-	    				idx_ij = T_dict[i,j]
-	    				if k == l
-	    					T3[idx,idx_ij] += 2
-	    				end
-	    				
-	    				
-	    				idx_il = T_dict[i,l]
-	    				if k == j
-	    					T3[idx,idx_il] -= 2
-	    				end
-
-	    				
-	    			end
-	    		end
-	    	end
-	    end
-	   
-	    @constraint(L1_OPT, low_3, λ3 + τ_31*t[1] - vcat(T3*omat[1:F.N^2],T3*omat[F.N^2+1:end])- tbt2 .<= 0)
-	    @constraint(L1_OPT, high_3, λ3 + τ_31*t[1] - vcat(T3*omat[1:F.N^2],T3*omat[F.N^2+1:end]) + tbt2 .>= 0)
-	    
-	    JuMP.optimize!(L1_OPT)
-	
-	
-	    t_opt = value.(t)
-	    o_opt=value.(omat)
-	    #@show t_opt
-	    
-	    
-	    idx=1
-	    O=zeros(2,F.N,F.N)
-	    for s=1:2
-		    for i=1:F.N
-		    	for j=1:F.N
-		    		O[s,i,j]=o_opt[idx]
-		    		idx+=1
-		    	end
-		    end
-	    end
-		    
-	          
-	    O_sym=zeros(2,F.N,F.N)
-	    for s=1:2
-	    	for i=1:F.N
-	    		for j=1:F.N
-	    			O_sym[s,i,j]=(O[s,i,j]+O[s,j,i])/2
-	    		end
-	    	end
-	    end
-	    
-	    O=O_sym
-	    #@show O
-		
-	    
-	    Ne,Ne2 = symmetry_builder(F)
-	    
-	    
-	    s2_tbt=zeros(4,F.N,F.N,F.N,F.N)
-	    for i=1:4
-	    	s2_tbt[i,:,:,:,:] = t_opt[1] * Ne2.mbts[3]
-	    end
-	    for sigma=1:4
-		    for i in 1:F.N
-		    	for j in 1:F.N
-		    		for k in 1:F.N
-		    			s2_tbt[sigma,i,j,k,k] += 2*O[div(sigma-1,2)+1,i,j]
-		    			
-		    		end
-		    	end
-		    end
-	    end
-	    
-	    
-	    s1_obt=zeros(2,F.N,F.N)
-	    for i=1:2
-	    	s1_obt[i,:,:] = t_opt[2]*Ne.mbts[2] .- 2η*O[i,:,:]
-	    end
-	    
-	    s=F_OP(([0],s1_obt,s2_tbt))
-	    F_new=F - s
-	    
-	    
-	    if SAVELOAD
-		fid = h5open(SAVENAME, "cw")
-		create_group(fid, "BLISS")
-		BLISS_group = fid["BLISS"]
-		println("Saving results of BLISS optimization to $SAVENAME")
-		BLISS_group["ovec"] = o_opt
-		BLISS_group["t1"] = t_opt[1]
-		BLISS_group["t2"] = t_opt[2]
-		create_group(fid, "BLISS_HAM")
-		MOL_DATA = fid["BLISS_HAM"]
-		MOL_DATA["h_const"] =  F_new.mbts[1]
-		MOL_DATA["obt"] =  F_new.mbts[2]
-		MOL_DATA["tbt"] =  F_new.mbts[3]
-		MOL_DATA["eta"] =  η
-		close(fid)
-	    end
-	     				
-	    
-	    println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
-	    return F_new, s
-		
-	end
-	    
-end
-
-function ghost_orbital(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"GHOST.h5")
-	#@warn "Linear programming function under construction, not working!"
-	if F.spin_orb
-		error("BLISS not defined for spin-orb=true!")
-	end
-
-    if model == "highs"
-        L1_OPT = Model(HiGHS.Optimizer)
-    elseif model == "ipopt"
-        L1_OPT = Model(Ipopt.Optimizer)
-    else
-        error("Not defined for model = $model")
-    end
-    
-    
-    if verbose == false
-        set_silent(L1_OPT)
-    end
-    
-    println("The L1 cost of original Hamiltonian is: ",PAULI_L1(F))
-    
-    if size(F.mbts[2],1)==size(F.mbts[3],1)
-    	    if SAVELOAD
-		fid = h5open(SAVENAME, "cw")
-		if haskey(fid, "BLISS")
-			BLISS_group = fid["BLISS"]
-			if haskey(BLISS_group, "ovec")
-				println("Loading results for BLISS optimization from $SAVENAME")
-				ovec = read(BLISS_group,"ovec")
-				t1 = read(BLISS_group,"t1")
-				t2 = read(BLISS_group,"t2")
-				t_opt=[t1,t2]
-				O=zeros(F.N,F.N)
-				idx=1
-				for i=1:F.N
-					for j=1:F.N
-				    		O[i,j]=ovec[idx]
-				    		idx+=1
-				    	end
-				end
-				@show t_opt
-				@show O
-				ham=fid["BLISS_HAM"]
-				F_new=F_OP((read(ham,"h_const"),read(ham,"obt"),read(ham,"tbt")))
-				println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
-				close(fid)
-				return F_new, F-F_new
-			end
-		end
-		close(fid)
-	    end
-    
-
-	    ovec_len = Int(F.N*(F.N+1)/2)
-
-	    ν1_len = F.N^2
-	    ν2_len = F.N^4
-	    ν3_len = Int((F.N*(F.N-1)/2)^2)
-	    
-	    @variables(L1_OPT, begin
-		t[1:2]
-		obt[1:ν1_len]
-		tbt1[1:ν2_len]
-		tbt2[1:ν3_len]
-		omat[1:F.N^2]
-	    end)
-
-	    @objective(L1_OPT, Min, sum(obt)+sum(tbt1)+sum(tbt2))
-	    
-
-		
-
-	    obt_corr = ob_correction(F)
-	    #1-body 1-norm
-	    λ1 = zeros(ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		λ1[idx] = F.mbts[2][i,j] + obt_corr[i,j]
-	    	end
-	    end
-
-	    τ_11 = zeros(ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		if i == j
-	    			τ_11[idx] = 2*F.N
-	    		end
-	    	end
-	    end
-	    τ_12 = zeros(ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		if i == j
-	    			τ_12[idx] = 1
-	    		end
-	    	end
-	    end
-	    T1 = zeros(ν1_len,ν1_len)
-	    T1 += Diagonal((2η - 2F.N)*ones(ν1_len))
-	    idx1 = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx1 += 1
-	    		idx2 = 0
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx2 += 1
-	    				if i == j && k == l
-	 	   					T1[idx1,idx2] -= 2
-	 	   				end
-	 	   			end
-	 	   		end
-	 	   	end
-	 	end
-	 	
-	 	
-	 	@constraint(L1_OPT, low_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat - obt .<= 0)
-		@constraint(L1_OPT, high_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat + obt .>= 0)
-		
-	 	#2-body αβ/βα 1-norm
-	 	λ2 = zeros(ν2_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				λ2[idx] = 0.5 * F.mbts[3][i,j,k,l]
-	    			end
-	    		end
-	    	end
-	    end
-
-	    τ_21 = zeros(ν2_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				if i == j && k == l
-	    					τ_21[idx] = 0.5
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-
-	    T2 = zeros(ν2_len,ν1_len)
-	    idx = 0
-	    idx_ij = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx_ij += 1
-	    		idx_kl = 0
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				idx_kl += 1
-	    				if i == j
-	    					T2[idx,idx_kl] += 1
-	    				end
-	    				if k == l
-	    					T2[idx,idx_ij] += 1
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	    
-	    @constraint(L1_OPT, low_2, λ2 - τ_21*t[1] - 0.5*T2*omat - tbt1 .<= 0)
-	    @constraint(L1_OPT, high_2, λ2 - τ_21*t[1] - 0.5*T2*omat + tbt1 .>= 0)
-	    
-	    T_dict = zeros(Int64,F.N,F.N)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		T_dict[i,j] = idx
-	    	end
-	    end
-	    #2-body αα/ββ 1-norm
-	    λ3 = zeros(ν3_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in 1:j-1
-	    				idx += 1
-	    				λ3[idx] = F.mbts[3][i,j,k,l] - F.mbts[3][i,l,k,j]
-	    			end
-	    		end
-	    	end
-	    end
-	    
-	    τ_31 = zeros(ν3_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in 1:j-1
-	    				idx += 1
-	    				if i == j && k == l
-	    					τ_31[idx] += 1
-	    				end
-	    				if i == l && k == j
-	    					τ_31[idx] -= 1
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	    
-	    
-
-	    T3 = zeros(ν3_len,ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in 1:j-1
-	    				idx += 1
-	    				
-	    				idx_ij = T_dict[i,j]
-	    				if k == l
-	    					T3[idx,idx_ij] += 1
-	    				end
-	    				
-	    				idx_kl = T_dict[k,l]
-	    				if i == j
-	    					T3[idx,idx_kl] += 1
-	    				end
-
-	    				idx_il = T_dict[i,l]
-	    				if k == j
-	    					T3[idx,idx_il] -= 1
-	    				end
-
-	    				idx_kj = T_dict[k,j]
-	    				if i == l
-	    					T3[idx,idx_kj] -= 1
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	   
-	    @constraint(L1_OPT, low_3, λ3 - τ_31*t[1] - T3*omat - tbt2 .<= 0)
-	    @constraint(L1_OPT, high_3, λ3 - τ_31*t[1] - T3*omat + tbt2 .>= 0)
-	    
-	    JuMP.optimize!(L1_OPT)
-	    
-	    t_opt = value.(t)
-	    o_opt = value.(omat)
-	    @show t_opt
-	    idx=1
-	    O=zeros(F.N,F.N)
-	    for i=1:F.N
-	    	for j=1:F.N
-	    		O[i,j]=o_opt[idx]
-	    		idx+=1
-	    	end
-	    end
-	    @show O
-	    O=(O+O')/2	
-		
-	    
-	    Ne,Ne2 = symmetry_builder(F)
-	    
-	    
-	    
-	    s2_tbt = t_opt[1] * Ne2.mbts[3]
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:F.N
-	    			s2_tbt[i,j,k,k] += O[i,j]
-	    			s2_tbt[k,k,i,j] += O[i,j]
-	    		end
-	    	end
-	    end
-	    s2 = F_OP(([0],[0],s2_tbt))
-
-	    s1_obt = t_opt[2]*Ne.mbts[2] - 2η*O
-	    s1 = F_OP(([0],s1_obt))
-	    
-	    F_new=F - s1-s2
-	    if SAVELOAD
-		fid = h5open(SAVENAME, "cw")
-		create_group(fid, "BLISS")
-		BLISS_group = fid["BLISS"]
-		println("Saving results of BLISS optimization to $SAVENAME")
-		BLISS_group["ovec"] = o_opt
-		BLISS_group["t1"] = t_opt[1]
-		BLISS_group["t2"] = t_opt[2]
-		create_group(fid, "BLISS_HAM")
-		MOL_DATA = fid["BLISS_HAM"]
-		MOL_DATA["h_const"] =  F_new.mbts[1]
-		MOL_DATA["obt"] =  F_new.mbts[2]
-		MOL_DATA["tbt"] =  F_new.mbts[3]
-		MOL_DATA["eta"] =  η
-		close(fid)
-	    end
-	    
-	    println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
-	    return F_new, s1+s2
-    else
-    
-    	   #=if SAVELOAD
-		fid = h5open(SAVENAME, "cw")
-		if haskey(fid, "BLISS")
-			BLISS_group = fid["BLISS"]
-			if haskey(BLISS_group, "ovec")
-				println("Loading results for BLISS optimization from $SAVENAME")
-				ovec = read(BLISS_group,"ovec")
-				t1 = read(BLISS_group,"t1")
-				t2 = read(BLISS_group,"t2")
-				t_opt=[t1,t2]
-				O=symmetrize_O_ij(ovec, F.N)
-				@show t_opt
-				@show O
-				ham=fid["BLISS_HAM"]
-				F_new=F_OP((read(ham,"h_const"),read(ham,"obt"),read(ham,"tbt")))
-				println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
-				close(fid)
-				return F_new, F-F_new
-			end
-		end
-		close(fid)
-	    end=#
-    	    
-	    ovec_len = Int(F.N*(F.N+1)/2)
-	    
-	    
-	    
-	    v1_len = 2*F.N^2
-	    ν2_len = 2*F.N^4
-	    ν3_len = Int(2*(F.N*(F.N-1)/2)^2)
-	   
-	    @variables(L1_OPT, begin
-		t[1:2]
-		
-		#obt[1:v1_len]
-		tbt1[1:ν2_len]
-		tbt2[1:ν3_len]
-		omat[1:2*F.N^2] 
-	    end)
-
-	    #@objective(L1_OPT, Min, 0.5*(sum(obt)+sum(tbt1)+sum(tbt2)))
-	    @objective(L1_OPT, Min, 0.5*(sum(tbt1)+sum(tbt2)))
-	    
-	    
-	
-	λ2 = zeros(ν2_len)
-	    idx = 0
-	    for s in 2:3
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				λ2[idx] = 0.5 * F.mbts[3][s,i,j,k,l]
-	    			end
-	    		end
-	    	end
-	    end
-	    end
-
-	    τ_21 = zeros(ν2_len)
-	    idx = 0
-	    for s in 2:3
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				if i == j && k == l
-	    					τ_21[idx] = 0.5
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	    end
-
-	    T2 = zeros(Int64,Int64(ν2_len/2),F.N^2)
-	    idx = 0
-	    idx_ij = 0
-	    
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx_ij += 1
-	    		
-	    		
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				
-	    				if k == l
-	    					T2[idx,idx_ij] += 1
-	    				end
-	    			end
-	    		end
-	    		
-	    	end
-	    end
-	    
-	    
-	    @constraint(L1_OPT, low_2, λ2 - τ_21*t[1] - vcat(T2*omat[1:F.N^2],T2*omat[F.N^2+1:end]) - tbt1 .<= 0)
-	    @constraint(L1_OPT, high_2, λ2 - τ_21*t[1] - vcat(T2*omat[1:F.N^2],T2*omat[F.N^2+1:end]) + tbt1 .>= 0)
-	
-	    T_dict = zeros(Int64,F.N,F.N)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		T_dict[i,j] = idx
-	    	end
-	    end
-	    #2-body αα/ββ 1-norm
-	    λ3 = zeros(ν3_len)
-	    idx = 0
-	    arr_align=[1,4]
 	    arr_anti=[2,3]
 	    for s in arr_align
 	    for i in 1:F.N
@@ -1703,7 +1177,6 @@ function ghost_orbital(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    #@show t_opt
 	    
 	    
-	    
 	    idx=1
 	    O=zeros(2,F.N,F.N)
 	    for s=1:2
@@ -1736,7 +1209,42 @@ function ghost_orbital(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    for i=1:4
 	    	s2_tbt[i,:,:,:,:] = t_opt[1] * Ne2.mbts[3]
 	    end
-	   
+	    #=for sigma in arr_align
+		    for i in 1:F.N
+		    	for j in 1:F.N
+		    		for k in 1:F.N
+		    			for l in 1:F.N
+		    			#s2_tbt[sigma,i,j,k,k] += 2*O[div(sigma-1,2)+1,i,j]
+			    			if k==l
+			    				s2_tbt[sigma,i,j,k,l] += O[div(sigma-1,2)+1,i,j]
+			    			end
+			    			if i==j
+			    				s2_tbt[sigma,k,l,i,j] += O[div(sigma-1,2)+1,k,l]
+			    			end
+			    		end
+		    		end
+		    	end
+		    end
+	    end
+	    
+	    for sigma in arr_anti
+		    for i in 1:F.N
+		    	for j in 1:F.N
+		    		for k in 1:F.N
+		    			for l in 1:F.N
+		    			#s2_tbt[sigma,i,j,k,k] += 2*O[div(sigma-1,2)+1,i,j]
+			    			if k==l
+			    				s2_tbt[sigma,i,j,k,l] += O[sigma-1,i,j]
+			    			end
+			    			if i==j
+			    				s2_tbt[5-sigma,k,l,i,j] += O[4-sigma,k,l]
+			    			end
+			    		end
+		    		end
+		    	end
+		    end
+	    end=#
+	    
 	    for sigma=1:4
 		    for i in 1:F.N
 		    	for j in 1:F.N
@@ -1755,43 +1263,11 @@ function ghost_orbital(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    end
 	    
 	    s=F_OP(([0],s1_obt,s2_tbt))
-	   
+	    #@show s
 	    F_new=F - s
 	    
-	    println("Calculating 1-norm of symmetry treated Hamiltonian:")
-	    println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
 	    
-	    println("Introducing Ghost Orbital (Auxilliary Orbital):")
-	    
-	    N=F.N
-	    
-	    obt_ghost=zeros(Float64, 2, N+1, N+1)
-	    obt_ghost[:,1:N,1:N]=F_new.mbts[2][:,:,:]
-	    tbt_ghost=zeros(Float64, 4, N+1, N+1, N+1, N+1)
-	    tbt_ghost[:,1:N,1:N,1:N,1:N]=F_new.mbts[3][:,:,:,:,:]
-	    g_sigma_kk=zeros(Float64, 2, N, N)
-	    alpha=zeros(Float64,2,N,N)
-	    #@show tbt_ghost
-	    
-	    h=F_new.mbts[2]
-	    g=F_new.mbts[3]
-	    
-	    
-	      
-	    g_sigma_kk=ob_correction(F_new)
-	    
-	    
-	    alpha[:,:,:]=0.5*(h[:,:,:]+g_sigma_kk[:,:,:])
-	    #@show alpha
-	    for sigma in 1:2
-	    	tbt_ghost[arr_align[sigma],1:N,1:N,N+1,N+1]-=2*alpha[sigma,:,:]
-	    end
-	    
-	    H_trans=F_OP(([F_new.mbts[1]],obt_ghost,tbt_ghost))
-	   
-	    
-	    
-	    #=if SAVELOAD
+	    if SAVELOAD
 		fid = h5open(SAVENAME, "cw")
 		create_group(fid, "BLISS")
 		BLISS_group = fid["BLISS"]
@@ -1806,13 +1282,14 @@ function ghost_orbital(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 		MOL_DATA["tbt"] =  F_new.mbts[3]
 		MOL_DATA["eta"] =  η
 		close(fid)
-	    end=#
+	    end
 	     				
-	    println("Calculating 1-norm of resultant Hamiltonian:")
-	    println("The L1 cost of fermionic operator after introducing ghost orbital is: ",PAULI_L1(H_trans))
-	    return H_trans,s
+	    
+	    println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
+	    return F_new, s
 		
 	end
 	    
 end
+
 
