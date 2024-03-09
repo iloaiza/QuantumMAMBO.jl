@@ -347,11 +347,11 @@ function PAULI_L1(F :: F_OP; count=false)
 			λ1 = 0
 		end
 		λ1=λ1/2
-		@show λ1
+		
 		if F.filled[3]
 			λ2 = 0.25 * sum(abs.(F.mbts[3][2:3,:,:,:,:]))
-			@show λ2
-			temp=λ2
+			
+			
 			arr_align=[1,4]
 			for sigma in arr_align
 				for r in 1:F.N
@@ -371,7 +371,7 @@ function PAULI_L1(F :: F_OP; count=false)
 	end
 		
 		
-	@show λ2-temp
+	
 
 	return λ1+λ2 
 end
