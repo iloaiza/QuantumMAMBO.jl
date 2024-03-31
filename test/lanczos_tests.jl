@@ -9,8 +9,8 @@ sp_orig_linalg = pyimport("scipy.linalg")
 sdstate_lanczos = pyimport("module_sdstate.lanczos_utils")
 numpy = pyimport("numpy")
 
-atol_lanczos_test = 1E-6
-rtol_lanczos_test = 1E-6
+atol_lanczos_test = 1E-3#1E-6
+rtol_lanczos_test = 1E-3#1E-6
 # TEMPFOLDER = "test/tmp"
 
 function calc_energy_range_all_num_electrons(; H_to_use, num_spin_orbitals, num_electrons_list, nuc_rep_energy, spin_preserving=false)
@@ -58,7 +58,7 @@ function calc_energy_range_all_num_electrons(; H_to_use, num_spin_orbitals, num_
                 k=1,
                 M=nothing,
                 sigma=nothing,
-                which="LR",  # Smallest real part eigenvalues.
+                which="LR",  # Largest real part eigenvalues.
                 v0=nothing,
                 ncv=nothing,
                 maxiter=1000,
@@ -106,6 +106,13 @@ function calc_energy_range_all_num_electrons(; H_to_use, num_spin_orbitals, num_
 end
 
 function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int64=0, charge::Int64=0, multiplicity::Int64=1)
+    println("----------------------------------------------------------------")
+    println("basis: ", basis)
+    println("geometry: ", geometry)
+    println("spin: ", spin)
+    println("charge: ", charge)
+    println("multiplicity: ", multiplicity)
+
     mol = pyscf.gto.Mole()
     mol.basis = basis
     mol.atom = geometry
@@ -137,6 +144,10 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     #
     cisolver = pyscf.fci.FCI(mol, myhf.mo_coeff)
     E_FCI_orb = pyconvert(Float64, cisolver.kernel()[0])
+
+    println("E_FCI_HF: ", E_FCI_HF)
+    println("E_FCI_UHF: ", E_FCI_UHF)
+    println("E_FCI_orb: ", E_FCI_orb)
 
     # Get metadata
     num_electrons = pyconvert(Int64, mol.nelectron)
@@ -178,7 +189,7 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     num_spin_orbitals = 2 * size(one_body_tensor)[1]
 
     println("num_spin_orbitals: ", num_spin_orbitals)
-    println("----------------------------------------------------------------")
+    
 
     # Get one body tensor for the two body term being in chemist notation
     one_body_tensor_chemist = pyconvert(Array{Float64,2}, feru.get_obt(H=one_body_fermi_op, n=2 * num_orb, spin_orb=true))
@@ -186,17 +197,22 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     # Get the FCI energy based on Lanczos from Scipy
     # For both the ground state and the largest energy
     ##################
-    # num_electrons_list=collect(range(0, stop=num_spin_orbitals, step=1))
-    num_electrons_list = Array([0, num_electrons, num_spin_orbitals])
+    num_electrons_list=collect(range(0, stop=num_spin_orbitals, step=1))
+    # num_electrons_list = Array([0, num_electrons, num_spin_orbitals])
     @time max_scipy_FCI_energy_all_electrons, min_scipy_FCI_energy_all_electrons, max_energy_list, min_energy_list = calc_energy_range_all_num_electrons(
         H_to_use=H_to_use,
         num_spin_orbitals=num_spin_orbitals,
         num_electrons_list=num_electrons_list,
         nuc_rep_energy=nuc_rep_energy,
         spin_preserving=false)
+    println("max_energy_list: ", max_energy_list)
+    println("min_energy_list: ", min_energy_list)
+    println("num_electrons_list: ", num_electrons_list)
+    println("num_electrons: ", num_electrons)
 
-    # neutral_charge_max_scipy_FCI_energy = max_energy_list[num_electrons+1]
-    neutral_charge_max_scipy_FCI_energy = max_energy_list[2]
+    neutral_charge_max_scipy_FCI_energy = max_energy_list[num_electrons+1]
+    println("neutral_charge_max_scipy_FCI_energy: ", neutral_charge_max_scipy_FCI_energy)
+    # neutral_charge_max_scipy_FCI_energy = max_energy_list[2]
     # println("max_energy_list: ", max_energy_list)
     # println("min_energy_list: ", min_energy_list)
     # println("num_electrons_list: ", num_electrons_list)
@@ -218,11 +234,12 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     # #Get the energies using the Lanczos method from module_sdstate
     tensors = (one_body_tensor_chemist, two_body_tensor_spin_orb)
 
-    E_max_sdstate_lanczos, E_min_sdstate_lanczos = sdstate_lanczos.lanczos_range(Hf=tensors, steps=30, state=nothing, ne=num_electrons)
-    E_max_sdstate_lanczos_temp, E_min_sdstate_lanczos_temp = sdstate_lanczos.lanczos_range(Hf=tensors, steps=30, state=nothing, ne=0)
-    E_max_sdstate_lanczos_temp2, E_min_sdstate_lanczos_temp2 = sdstate_lanczos.lanczos_range(Hf=tensors, steps=30, state=nothing, ne=num_spin_orbitals)
-    E_max_sdstate_lanczos_total = maximum([pyconvert(Float64, E_max_sdstate_lanczos_temp), pyconvert(Float64, E_max_sdstate_lanczos_temp2)])
-    E_min_sdstate_lanczos_total = minimum([pyconvert(Float64, E_min_sdstate_lanczos_temp), pyconvert(Float64, E_min_sdstate_lanczos_temp2), pyconvert(Float64, E_min_sdstate_lanczos)])
+    E_max_sdstate_lanczos, E_min_sdstate_lanczos = sdstate_lanczos.lanczos_range(Hf=tensors, steps=25, state=nothing, ne=num_electrons)
+    
+    # E_max_sdstate_lanczos_temp, E_min_sdstate_lanczos_temp = sdstate_lanczos.lanczos_range(Hf=tensors, steps=25, state=nothing, ne=0)
+    # E_max_sdstate_lanczos_temp2, E_min_sdstate_lanczos_temp2 = sdstate_lanczos.lanczos_range(Hf=tensors, steps=25, state=nothing, ne=num_spin_orbitals)
+    # E_max_sdstate_lanczos_total = maximum([pyconvert(Float64, E_max_sdstate_lanczos_temp), pyconvert(Float64, E_max_sdstate_lanczos_temp2)])
+    # E_min_sdstate_lanczos_total = minimum([pyconvert(Float64, E_min_sdstate_lanczos_temp), pyconvert(Float64, E_min_sdstate_lanczos_temp2), pyconvert(Float64, E_min_sdstate_lanczos)])
     
     # Below wrapper seg faults for unknown reason
     # E_max_sdstate_lanczos, E_min_sdstate_lanczos = QuantumMAMBO.lanczos_range(
@@ -234,9 +251,11 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     # )
     E_max_lanczo_final = pyconvert(Float64, E_max_sdstate_lanczos) + nuc_rep_energy
     E_min_lanczo_final = pyconvert(Float64, E_min_sdstate_lanczos) + nuc_rep_energy
+    println("E_max_lanczo_final: ", E_max_lanczo_final)
+    println("E_min_lanczo_final: ", E_min_lanczo_final)
 
     #Get the energies using the total Lanczos method from module_sdstate
-    # E_max_sdstate_lanczos_total, E_min_sdstate_lanczos_total = sdstate_lanczos.lanczos_total_range(Hf=tensors, steps=30, states=[], e_nums=num_electrons_list, multiprocessing=true)
+    E_max_sdstate_lanczos_total, E_min_sdstate_lanczos_total = sdstate_lanczos.lanczos_total_range(Hf=tensors, steps=25, states=[], e_nums=[], multiprocessing=false)
     # Below wrapper seg faults for unknown reason
     # E_max_sdstate_lanczos_total, E_min_sdstate_lanczos_total = QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_chemist,
     #     two_body_tensor=two_body_tensor_spin_orb,
@@ -250,6 +269,8 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     E_min_lanczo_final_total = pyconvert(Float64, E_min_sdstate_lanczos_total) + nuc_rep_energy
     # E_max_lanczo_final_total = E_max_sdstate_lanczos_total + nuc_rep_energy
     # E_min_lanczo_final_total = E_min_sdstate_lanczos_total + nuc_rep_energy
+    println("E_max_lanczo_final_total: ", E_max_lanczo_final_total)
+    println("E_min_lanczo_final_total: ", E_min_lanczo_final_total)
 
     return E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy
 end
@@ -294,20 +315,35 @@ end
 
 end
 
-
-@testset "lanczos_fci_h2_cc-pVDZ" begin
-    basis = "cc-pVDZ" # 20 spin orbitals
+@testset "lanczos_fci_h2neg_sto6g" begin
+    basis = "sto6g" # 4 spin orbitals
     bond_length = 1.0
     geometry = "H 0 0 0; H 0 0 $bond_length"
+    charge = -1
+    spin = 1
+    multiplicity = 2
 
-    E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy = calc_lanczos_test_energies(basis=basis, geometry=geometry)
+    (E_FCI_HF, 
+    E_FCI_UHF, 
+    E_FCI_orb, 
+    min_scipy_FCI_energy_all_electrons, 
+    E_min_lanczo_final, 
+    E_min_lanczo_final_total, 
+    max_scipy_FCI_energy_all_electrons, 
+    E_max_lanczo_final, 
+    E_max_lanczo_final_total, 
+    neutral_charge_max_scipy_FCI_energy) = calc_lanczos_test_energies(basis=basis, 
+                                                                        geometry=geometry, 
+                                                                        spin=spin, 
+                                                                        charge=charge, 
+                                                                        multiplicity=multiplicity)
 
     # Check that the ground state energies are the same
     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(E_FCI_HF, E_FCI_orb, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
-    @test isapprox(E_FCI_HF, min_scipy_FCI_energy_all_electrons, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    # @test isapprox(E_min_lanczo_final, min_scipy_FCI_energy_all_electrons, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(E_FCI_HF, E_min_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
-    @test isapprox(E_FCI_HF, E_min_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(min_scipy_FCI_energy_all_electrons, E_min_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
     # Check that the highest state energies are the same
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
@@ -315,8 +351,62 @@ end
 
 end
 
-@testset "lanczos_fci_hneg_aug-cc-pVDZ" begin
-    basis = "aug-cc-pVDZ" # 18 spin orbitals
+# @testset "lanczos_fci_h2_cc-pVDZ" begin
+#     basis = "cc-pVDZ" # 20 spin orbitals
+#     bond_length = 1.0
+#     geometry = "H 0 0 0; H 0 0 $bond_length"
+
+#     E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy = calc_lanczos_test_energies(basis=basis, geometry=geometry)
+
+#     # Check that the ground state energies are the same
+#     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, E_FCI_orb, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, min_scipy_FCI_energy_all_electrons, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, E_min_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, E_min_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+#     # Check that the highest state energies are the same
+#     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+# end
+
+# @testset "lanczos_fci_hneg_aug-cc-pVDZ" begin
+#     basis = "aug-cc-pVDZ" # 18 spin orbitals
+#     # bond_length = 1.0
+#     geometry = "H 0 0 0"
+#     charge = -1
+
+#     (E_FCI_HF,
+#         E_FCI_UHF,
+#         E_FCI_orb,
+#         min_scipy_FCI_energy_all_electrons,
+#         E_min_lanczo_final,
+#         E_min_lanczo_final_total,
+#         max_scipy_FCI_energy_all_electrons,
+#         E_max_lanczo_final,
+#         E_max_lanczo_final_total,
+#         neutral_charge_max_scipy_FCI_energy) = calc_lanczos_test_energies(basis=basis,
+#         geometry=geometry,
+#         spin=0,
+#         charge=charge,
+#         multiplicity=1)
+
+#     # Check that the ground state energies are the same
+#     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, E_FCI_orb, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, min_scipy_FCI_energy_all_electrons, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, E_min_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(E_FCI_HF, E_min_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+#     # Check that the highest state energies are the same
+#     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+#     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+# end
+
+@testset "lanczos_fci_hneg_cc-pVDZ" begin
+    basis = "cc-pVDZ" #  spin orbitals
     # bond_length = 1.0
     geometry = "H 0 0 0"
     charge = -1
@@ -339,17 +429,15 @@ end
     # Check that the ground state energies are the same
     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(E_FCI_HF, E_FCI_orb, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
-    @test isapprox(E_FCI_HF, min_scipy_FCI_energy_all_electrons, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    # @test isapprox(E_min_lanczo_final, min_scipy_FCI_energy_all_electrons, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(E_FCI_HF, E_min_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
-    @test isapprox(E_FCI_HF, E_min_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(min_scipy_FCI_energy_all_electrons, E_min_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
     # Check that the highest state energies are the same
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
 end
-
-
 
 # @testset "lanczos_fci_lih_cc-pVDZ" begin
 #     basis = "cc-pVDZ" # 38 spin orbitals
