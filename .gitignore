@@ -37,3 +37,5 @@ SAVED/*.h5
 command_notes.txt
 lanczos_trials.jl
 test/*_BLISS.h5
+examples/data/36_1ru_II_2pl_BLISS.h5
+examples/data/fcidump.36_1ru_II_2pl_BLISS

@@ -132,6 +132,8 @@ function SAVELOAD_XYZ_HAM(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5", 
 end
 
 function LOCALIZED_XYZ_HAM(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING; kwargs...)
+	throw(ErrorException("This function is now broken."))
+	
 	if DO_SAVE && isfile(FILENAME*".h5")
 		fid = h5open(FILENAME*".h5", "cw")
 		if haskey(fid, "MOLECULAR_DATA")

@@ -569,7 +569,14 @@ function F_OP_to_eri(F :: F_OP)
 end
 
 function eri_to_F_OP(obt, tbt, hconst :: Array = [0]; spin_orb=false)
-	#transform electronic repulsion integrals into fermionic operator
+	#Transform electronic repulsion integrals into fermionic operator
+	#Original form assumed to be:
+	# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+	#Internally stored as:
+	# H = E_0 + (h_ij-0.5*sum_k[g_ikkj]) a†_i a_j + 0.5*g_ijkl a†_i a_j a†_k a_l 
+	# where E_0 = hconst, h_ij = obt, g_ijkl = tbt,
+	# and i,j,k,l refer to spatial orbitals if spin_orb = false, 
+	# and spin-orbitals if spin_orb = true
 	N = size(obt)[1]
 
 	mbts = (hconst, obt - sum([0.5*tbt[:,k,k,:] for k in 1:N]), 0.5*tbt)
@@ -578,8 +585,16 @@ function eri_to_F_OP(obt, tbt, hconst :: Array = [0]; spin_orb=false)
 	return F_OP(mbts, spin_orb)
 end
 
-function eri_to_F_OP(obt, tbt, hconst :: Number)
-	return eri_to_F_OP(obt, tbt, [hconst])
+function eri_to_F_OP(obt, tbt, hconst :: Number; spin_orb=false)
+	#Transform electronic repulsion integrals into fermionic operator
+	#Original form assumed to be:
+	# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+	#Internally stored as:
+	# H = E_0 + (h_ij-0.5*sum_k[g_ikkj]) a†_i a_j + 0.5*g_ijkl a†_i a_j a†_k a_l 
+	# where E_0 = hconst, h_ij = obt, g_ijkl = tbt,
+	# and i,j,k,l refer to spatial orbitals if spin_orb = false, 
+	# and spin-orbitals if spin_orb = true
+	return eri_to_F_OP(obt, tbt, [hconst],spin_orb=spin_orb)
 end
 
 function to_CSA_SD(F :: F_FRAG)
