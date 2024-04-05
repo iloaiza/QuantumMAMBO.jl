@@ -1,5 +1,5 @@
 using PythonCall
-sdstate_lanczos = pyimport("module_sdstate.lanczos_utils")
+
 
 """
     lanczos_total_range(one_body_tensor::Array{Float64,2}, two_body_tensor::Array{Float64,4}, states=[], e_nums=[num_electrons], steps::Int=2, multiprocessing::Bool=false)
@@ -31,7 +31,7 @@ function lanczos_total_range(; one_body_tensor::Array{Float64,2},
     steps::Int=2,
     multiprocessing::Bool=false)
     println("!!!!!!!!!!!!!!!!!!!lanczos_total_range!!!!!!!!!!!!!!!!!!!!!")
-
+    sdstate_lanczos = pyimport("module_sdstate.lanczos_utils")
     E_max, E_min = sdstate_lanczos.lanczos_total_range(Hf=(one_body_tensor, two_body_tensor),
         steps=steps,
         states=initial_states,
@@ -68,7 +68,7 @@ function lanczos_range(; one_body_tensor::Array{Float64,2},
     initial_state=nothing,
     steps::Int=2
 )
-
+    sdstate_lanczos = pyimport("module_sdstate.lanczos_utils")
     E_max, E_min = sdstate_lanczos.lanczos_range(Hf=(one_body_tensor, two_body_tensor),
         steps=steps, state=initial_state, ne=num_electrons)
 
