@@ -93,3 +93,64 @@ pyscf.tools.fcidump.from_integrals(filename=lpbliss_fcidump_output_file_path,
     float_format=" %.16g"
     )
 println("LPBLISS-modified tensors written to FCIDUMP file.")
+
+
+# Calculate halfbandwidths, which are the lower bound on the L1 norm of the Hamiltonian
+################################################################################################
+
+#Original Hamiltonian
+println("Calculating halfbandwidths for the original Hamiltonian")
+one_body_tensor_chemist_spatial_orbitals = H_orig.mbts[2]
+two_body_tensor_chemist_spatial_orbitals = H_orig.mbts[3]
+println("one_body_tensor_chemist_spatial_orbitals shape: ", size(one_body_tensor_chemist_spatial_orbitals))
+println("two_body_tensor_chemist_spatial_orbitals shape: ", size(two_body_tensor_chemist_spatial_orbitals))
+
+
+QuantumMAMBO.eliminate_small_values!(one_body_tensor_chemist_spatial_orbitals, 1e-8)
+QuantumMAMBO.eliminate_small_values!(two_body_tensor_chemist_spatial_orbitals, 1e-8)
+println("Small values eliminated.")
+@time begin
+E_max_orig, E_min_orig= QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_chemist_spatial_orbitals, 
+                                                        two_body_tensor=two_body_tensor_chemist_spatial_orbitals, 
+                                                        core_energy=core_energy, 
+                                                        initial_states=[],
+                                                        num_electrons_list=[], 
+                                                        steps=25, #Increase this for more accurate results
+                                                        multiprocessing=false, #Setting to true may cause a segfault
+                                                        spin_orbitals=false
+                                                        )
+end
+delta_E_div_2_orig = (E_max_orig - E_min_orig) / 2
+println("Original Hamiltonian:")
+println("E_max_orig: ", E_max_orig)
+println("E_min_orig: ", E_min_orig)
+println("delta_E_div_2_orig: ", delta_E_div_2_orig)
+
+#LPBLISS-modified Hamiltonian
+println("Calculating halfbandwidths for the LPBLISS-modified Hamiltonian")
+one_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[2]    
+two_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[3]
+println("one_body_tensor_bliss_spatial_orbitals shape: ", size(one_body_tensor_bliss_spatial_orbitals))
+println("two_body_tensor_bliss_spatial_orbitals shape: ", size(two_body_tensor_bliss_spatial_orbitals))
+
+QuantumMAMBO.eliminate_small_values!(one_body_tensor_bliss_spatial_orbitals, 1e-8)
+QuantumMAMBO.eliminate_small_values!(two_body_tensor_bliss_spatial_orbitals, 1e-8)
+println("Small values eliminated.")
+@time begin
+E_max_bliss, E_min_bliss= QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_bliss_spatial_orbitals, 
+                                                            two_body_tensor=two_body_tensor_bliss_spatial_orbitals, 
+                                                            core_energy=core_energy, 
+                                                            initial_states=[],
+                                                            num_electrons_list=[], 
+                                                            steps=25, #Increase this for more accurate results
+                                                            multiprocessing=false, #Setting to true may cause a segfault
+                                                            spin_orbitals=false
+                                                            )
+end 
+delta_E_div_2_bliss = (E_max_bliss - E_min_bliss) / 2
+println("LPBLISS-modified Hamiltonian:")
+println("E_max_bliss: ", E_max_bliss)
+println("E_min_bliss: ", E_min_bliss)
+println("delta_E_div_2_bliss: ", delta_E_div_2_bliss)
+
+
