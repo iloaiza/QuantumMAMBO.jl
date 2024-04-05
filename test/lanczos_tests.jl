@@ -192,7 +192,25 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     
 
     # Get one body tensor for the two body term being in chemist notation
-    one_body_tensor_chemist = pyconvert(Array{Float64,2}, feru.get_obt(H=one_body_fermi_op, n=2 * num_orb, spin_orb=true))
+    one_body_tensor_chemist = pyconvert(Array{Float64,2}, feru.get_obt(H=one_body_fermi_op, n=2 * num_orb, spin_orb=false))
+    two_body_tensor_chemist = pyconvert(Array{Float64,4}, 0.5*two_body_tensor)
+    QuantumMAMBO.eliminate_small_values!(one_body_tensor_chemist, 1e-8)
+    QuantumMAMBO.eliminate_small_values!(two_body_tensor_chemist, 1e-8)
+    println("one_body_tensor type: ", typeof(one_body_tensor))
+    println("two_body_tensor type: ", typeof(two_body_tensor))
+    println("one_body_tensor shape: ", size(one_body_tensor))
+    println("two_body_tensor shape: ", two_body_tensor.shape)
+    
+    println(" one_body_tensor_chemist type: ", typeof(one_body_tensor_chemist))
+    println(" two_body_tensor_chemist type: ", typeof(two_body_tensor_chemist))
+    println("one_body_tensor_chemist shape: ", size(one_body_tensor_chemist))
+    println("two_body_tensor_chemist shape: ", size(two_body_tensor_chemist))
+
+    # println("one_body_tensor_chemist: ", one_body_tensor_chemist)
+    # println("two_body_tensor_chemist: ", two_body_tensor_chemist)
+    # println("one_body_tensor: ", one_body_tensor)
+    # println("two_body_tensor: ", two_body_tensor)
+    
 
     # Get the FCI energy based on Lanczos from Scipy
     # For both the ground state and the largest energy
@@ -221,20 +239,28 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     ##################
 
     # Get the two body tensor in spin orbital form from the openfermion operator
-    two_body_tensor_spin_orb = zeros((num_spin_orbitals, num_spin_orbitals, num_spin_orbitals, num_spin_orbitals))
-    for dict_item in H_to_use.terms.items()
-        term, val = dict_item
-        val = pyconvert(Float64, val)
-        term = pyconvert(Union{NTuple{4,Tuple{Int64,Int64}},NTuple{2,Tuple{Int64,Int64}}}, term)
-        if length(term) == 4
-            two_body_tensor_spin_orb[term[1][1]+1, term[2][1]+1, term[3][1]+1, term[4][1]+1] = val
-        end
-    end
+    # two_body_tensor_spin_orb = zeros((num_spin_orbitals, num_spin_orbitals, num_spin_orbitals, num_spin_orbitals))
+    # for dict_item in H_to_use.terms.items()
+    #     term, val = dict_item
+    #     val = pyconvert(Float64, val)
+    #     term = pyconvert(Union{NTuple{4,Tuple{Int64,Int64}},NTuple{2,Tuple{Int64,Int64}}}, term)
+    #     if length(term) == 4
+    #         two_body_tensor_spin_orb[term[1][1]+1, term[2][1]+1, term[3][1]+1, term[4][1]+1] = val
+    #     end
+    # end
 
     # #Get the energies using the Lanczos method from module_sdstate
-    tensors = (one_body_tensor_chemist, two_body_tensor_spin_orb)
-
-    E_max_sdstate_lanczos, E_min_sdstate_lanczos = sdstate_lanczos.lanczos_range(Hf=tensors, steps=25, state=nothing, ne=num_electrons)
+    E_max_lanczos_final, E_min_lanczos_final = QuantumMAMBO.lanczos_range(one_body_tensor=one_body_tensor_chemist, 
+                                                                        two_body_tensor=two_body_tensor_chemist, 
+                                                                        core_energy=nuc_rep_energy, 
+                                                                        num_electrons=num_electrons, 
+                                                                        initial_state=nothing, 
+                                                                        steps=25,
+                                                                        spin_orbitals=false
+                                                                        )
+                                                                        
+    # tensors = (one_body_tensor_chemist, two_body_tensor_spin_orb)
+    # E_max_sdstate_lanczos, E_min_sdstate_lanczos = sdstate_lanczos.lanczos_range(Hf=tensors, steps=25, state=nothing, ne=num_electrons)
     
     # E_max_sdstate_lanczos_temp, E_min_sdstate_lanczos_temp = sdstate_lanczos.lanczos_range(Hf=tensors, steps=25, state=nothing, ne=0)
     # E_max_sdstate_lanczos_temp2, E_min_sdstate_lanczos_temp2 = sdstate_lanczos.lanczos_range(Hf=tensors, steps=25, state=nothing, ne=num_spin_orbitals)
@@ -249,13 +275,26 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     #     initial_state=nothing,
     #     steps=30
     # )
-    E_max_lanczo_final = pyconvert(Float64, E_max_sdstate_lanczos) + nuc_rep_energy
-    E_min_lanczo_final = pyconvert(Float64, E_min_sdstate_lanczos) + nuc_rep_energy
-    println("E_max_lanczo_final: ", E_max_lanczo_final)
-    println("E_min_lanczo_final: ", E_min_lanczo_final)
+    # E_max_lanczo_final = pyconvert(Float64, E_max_sdstate_lanczos) + nuc_rep_energy
+    # E_min_lanczo_final = pyconvert(Float64, E_min_sdstate_lanczos) + nuc_rep_energy
+
+    println("E_max_lanczo_final: ", E_max_lanczos_final)
+    println("E_min_lanczo_final: ", E_min_lanczos_final)
 
     #Get the energies using the total Lanczos method from module_sdstate
-    E_max_sdstate_lanczos_total, E_min_sdstate_lanczos_total = sdstate_lanczos.lanczos_total_range(Hf=tensors, steps=25, states=[], e_nums=[], multiprocessing=false)
+    E_max_lanczo_final_total, E_min_lanczo_final_total = QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_chemist, 
+                                                                                        two_body_tensor=two_body_tensor_chemist, 
+                                                                                        core_energy=nuc_rep_energy, 
+                                                                                        initial_states=[],
+                                                                                        num_electrons_list=[], 
+                                                                                        steps=25,
+                                                                                        multiprocessing=false,
+                                                                                        spin_orbitals=false
+                                                                                        )
+                                                                                        
+    
+    # E_max_sdstate_lanczos_total, E_min_sdstate_lanczos_total = sdstate_lanczos.lanczos_total_range(Hf=tensors, steps=25, states=[], e_nums=[], multiprocessing=false)
+    
     # Below wrapper seg faults for unknown reason
     # E_max_sdstate_lanczos_total, E_min_sdstate_lanczos_total = QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_chemist,
     #     two_body_tensor=two_body_tensor_spin_orb,
@@ -265,14 +304,24 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     #     multiprocessing=false
     # )
 
-    E_max_lanczo_final_total = pyconvert(Float64, E_max_sdstate_lanczos_total) + nuc_rep_energy
-    E_min_lanczo_final_total = pyconvert(Float64, E_min_sdstate_lanczos_total) + nuc_rep_energy
+    # E_max_lanczo_final_total = pyconvert(Float64, E_max_sdstate_lanczos_total) + nuc_rep_energy
+    # E_min_lanczo_final_total = pyconvert(Float64, E_min_sdstate_lanczos_total) + nuc_rep_energy
     # E_max_lanczo_final_total = E_max_sdstate_lanczos_total + nuc_rep_energy
     # E_min_lanczo_final_total = E_min_sdstate_lanczos_total + nuc_rep_energy
     println("E_max_lanczo_final_total: ", E_max_lanczo_final_total)
     println("E_min_lanczo_final_total: ", E_min_lanczo_final_total)
 
-    return E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy
+    return (E_FCI_HF, 
+        E_FCI_UHF, 
+        E_FCI_orb, 
+        min_scipy_FCI_energy_all_electrons, 
+        E_min_lanczos_final, 
+        E_min_lanczo_final_total, 
+        max_scipy_FCI_energy_all_electrons, 
+        E_max_lanczos_final, 
+        E_max_lanczo_final_total, 
+        neutral_charge_max_scipy_FCI_energy
+        )
 end
 
 @testset "lanczos_fci_h2" begin
