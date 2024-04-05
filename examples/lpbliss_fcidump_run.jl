@@ -168,3 +168,8 @@ println("LPBLISS-modified Hamiltonian:")
 println("E_max_bliss: ", E_max_bliss)
 println("E_min_bliss: ", E_min_bliss)
 println("delta_E_div_2_bliss: ", delta_E_div_2_bliss)
+
+println("LPBLISS-modified Hamiltonian, $num_electrons electrons:")
+println("E_max_bliss_subspace: ", E_max_bliss_subspace)
+println("E_min_bliss_subspace: ", E_min_bliss_subspace)
+println("delta_E_div_2_bliss_subspace: ", delta_E_div_2_bliss_subspace)
