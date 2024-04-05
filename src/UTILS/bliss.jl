@@ -45,7 +45,7 @@ function quadratic_bliss_params_to_F_OP(u1, u2, ovec, η, N)
 		
 		
 		
-		Sconst = [-η - η^2]
+		Sconst = [-u1*η - u2*η^2]
 
 		Sobt = zeros(N, N)
 		Tobt = zeros(N, N)
@@ -113,7 +113,7 @@ function quadratic_bliss_params_to_F_OP(u1, u2, ovec, η, N)
 	    	s1_obt[i,:,:] = u1*Ne.mbts[2] .- 2η*O[i,:,:]
 	    end
 	    
-	    S=F_OP(([0],s1_obt,s2_tbt))
+	    S=F_OP(([-u1*η - u2*η^2],s1_obt,s2_tbt))
 	    return S
 	end
 
@@ -933,7 +933,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    s2 = F_OP(([0],[0],s2_tbt))
 
 	    s1_obt = t_opt[2]*Ne.mbts[2] - 2η*O
-	    s1 = F_OP(([0],s1_obt))
+	    s1 = F_OP(([-t_opt[2]*η - t_opt[1]*η^2],s1_obt))
 	    
 	    F_new=F - s1-s2
 	    if SAVELOAD
@@ -1289,7 +1289,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    	s1_obt[i,:,:] = t_opt[2]*Ne.mbts[2] .- 2η*O[i,:,:]
 	    end
 	    
-	    s=F_OP(([0],s1_obt,s2_tbt))
+	    s=F_OP(([-t_opt[2]*η - t_opt[1]*η^2],s1_obt,s2_tbt))
 	    #@show s
 	    F_new=F - s
 	    
