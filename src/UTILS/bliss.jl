@@ -625,12 +625,16 @@ end
 	Optimizes L1-norm through linear programming.
 	Solvers: HiGHS and Ipopt (HiGHS is usually faster, both are expected to return identical results)
 	Input:
+		The tensors of the input Hamiltonian are assumed to be of the form ``H = \\sum_{ij} h_{ij} a_i^† a_j + \\sum_{ijkl} g_ijkl a_i^† a_j a_k^† a_l``
+    
 		F::F_OP : (F_OP is defined under src/UTILS/struct.jl)
+		
 			Case 1: F respects spin symmetry, i.e., αα and ββ type components of one-body tensor are identical, and, αααα, ααββ, ββαα and ββββ type components of two body tensor are identical.
 				If N be the number of spatial orbitals, F.mbts[2] (i.e. the one body tensor) is an N * N object, and F.mbts[3] (i.e. the two body tensor) is an 				N*N*N*N object, with indices running over spatial orbitals.
 				
 			Case 2: F may violate spin symmetry, i.e., αα and ββ type components of one-body tensor are not necessarily identical, and αααα, ααββ, ββαα and ββββ type components of two body tensor are not necessarily identical. 
 				If N be the number of spatial orbitals, F.mbts[2] (i.e. the one body tensor) is a 2*N*N object, and F.mbts[3] (i.e. the two body tensor) is a 4*N*N*N*N object. In both one and two body tensors, all indices except the first index run over spatial orbitals. The first index of F.mbts[2] runs over the component types αα and ββ, whereas that of F.mbts[3] runs over the component types αααα, ααββ, ββαα and ββββ. 
+				
 			*NOTE*
 				bliss_linprog() does not work with F_OP where indices run over spin orbitals. Such an input F_OP would result in an incorrect output.
 				One can convert from the F_OP format where indices run over spin-orbitals to the format described under Case 2 using the F_OP_compress(F::F_OP) function. To convert back to the F_OP format where indices run over spin-orbitals, use the F_OP_converter(F::F_OP) function. Both F_OP_compress() and F_OP_converter() functions are defined under src/UTILS/fermionic.jl.
