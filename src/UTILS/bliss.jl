@@ -617,6 +617,34 @@ function symmetrize_O_ij(o_opt,N)
 	return O_sym
 end
 
+
+
+"""
+	bliss_linprog(F :: F_OP, η; model='highs', verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*'BLISS.h5')
+	Shifts the Hamiltonian by a Symmetry operator, leaving unchanged a subspace with a chosen number of electrons η, such that the L1 norm of the resultant Hamiltonian is minimised.
+	Optimizes L1-norm through linear programming.
+	Solvers: HiGHS and Ipopt (HiGHS is usually faster, both are expected to return identical results)
+	Input:
+		F::F_OP : (F_OP is defined under src/UTILS/struct.jl)
+			Case 1: F respects spin symmetry, i.e., αα and ββ type components of one-body tensor are identical, and, αααα, ααββ, ββαα and ββββ type components of two body tensor are identical.
+				If N be the number of spatial orbitals, F.mbts[2] (i.e. the one body tensor) is an N * N object, and F.mbts[3] (i.e. the two body tensor) is an 				N*N*N*N object, with indices running over spatial orbitals.
+				
+			Case 2: F may violate spin symmetry, i.e., αα and ββ type components of one-body tensor are not necessarily identical, and αααα, ααββ, ββαα and ββββ type components of two body tensor are not necessarily identical. 
+				If N be the number of spatial orbitals, F.mbts[2] (i.e. the one body tensor) is a 2*N*N object, and F.mbts[3] (i.e. the two body tensor) is a 4*N*N*N*N object. In both one and two body tensors, all indices except the first index run over spatial orbitals. The first index of F.mbts[2] runs over the component types αα and ββ, whereas that of F.mbts[3] runs over the component types αααα, ααββ, ββαα and ββββ. 
+			*NOTE*
+				bliss_linprog() does not work with F_OP where indices run over spin orbitals. Such an input F_OP would result in an incorrect output.
+				One can convert from the F_OP format where indices run over spin-orbitals to the format described under Case 2 using the F_OP_compress(F::F_OP) function. To convert back to the F_OP format where indices run over spin-orbitals, use the F_OP_converter(F::F_OP) function. Both F_OP_compress() and F_OP_converter() functions are defined under src/UTILS/fermionic.jl.
+				
+		η::Int64 : Number of electrons. The subspace corresponding to η electrons is left invariant under BLISS. 
+		model: can be set as 'highs' or 'ipopt'. Set to 'highs' by default.
+		verbose: whether intermediate step calculations are displayed or not
+		SAVELOAD: whether output is saved under SAVED/ folder and whether previously computed results are loaded from savefiles or not. Set to the configuration variable SAVING by dafault.
+		SAVENAME: filename for the savefile of the BLISS results. 
+	Output: 
+		Returns the BLISS-treated Hamiltonian F_bliss and the Symmetry shift operator S, where F_bliss = F - S, F being the input F_OP. 
+		The format of the one and two body tensors in the output F_OP objects (i.e. F_bliss and S) are exactly identical to that of their input. 	
+
+"""
 function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
 	if F.spin_orb
 		error("BLISS not defined for spin-orb=true!")
