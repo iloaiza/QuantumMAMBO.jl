@@ -1,3 +1,8 @@
+ENV["JULIA_CONDAPKG_BACKEND"] = PY_BACKEND
+
+using PythonCall
+
+
 function SAVELOAD_HAM(mol_name, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING)
 	#loads (or generates and saves) Hamiltonian in FILENAME corresponding to mol_name
 	if DO_SAVE && isfile(FILENAME*".h5")
@@ -364,7 +369,28 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		H=F_OP_converter(H)
 	end
 	
-	
+	if DO_LANCZOS
+		println("Estimating ΔE/2 using Lanczos iteration.")
+		
+		
+		if !(spin_symmetry==false && rohf==false && (bliss==true || compress==false))
+			H_spin=F_OP_space_to_spin(H)
+			#tensors=(H_spin.mbts[2],H_spin.mbts[3])
+		else
+			H_spin=H
+			#tensors=(H.mbts[2],H.mbts[3])
+		end
+			
+		
+		E_max_total,E_min_total = lanczos_total_range(one_body_tensor=H_spin.mbts[2],two_body_tensor=H_spin.mbts[3],steps=5)
+    		E_max, E_min= lanczos_range(one_body_tensor=H_spin.mbts[2],two_body_tensor=H_spin.mbts[3],steps=5, num_electrons=η)
+    		
+    		
+		delta_E_total=E_max_total - E_min_total
+		delta_E=E_max-E_min
+		println("Total spectral gap/2: ", delta_E_total/2)
+		println("Spectral gap/2 for ",η," electrons: ", delta_E/2)
+	end
 	
 	if DO_ΔE
 		println("Obtaining 1-norm lower bound")
