@@ -1,4 +1,16 @@
-# pyscf_tools_fcidump = pyimport("pyscf.tools.fcidump") ############NOT HERE###############
+# #FUNCTIONS FOR INTERFACING WITH PYTHON
+# ENV["JULIA_CONDAPKG_BACKEND"] = PY_BACKEND
+
+# using PythonCall
+# np = pyimport("numpy")
+# scipy = pyimport("scipy")
+# sympy = pyimport("sympy")
+# of = pyimport("openfermion")
+
+# UTILS_DIR = @__DIR__
+# sys = pyimport("sys")
+# sys.path.append(UTILS_DIR)
+
 
 function load_tensors_from_fcidump(; data_file_path, molpro_orbsym_convention=true)
     """
@@ -6,12 +18,11 @@ function load_tensors_from_fcidump(; data_file_path, molpro_orbsym_convention=tr
     FCIDUMP files from Chemistry Benchmark appear to have the molpro orbital symmetries convention.
     """
     println("Loading tensors from FCIDUMP file: ", data_file_path)
-    # readline()
+
     println("fci_data to be loaded")
-    # readline()
-    pyscf_tools_fcidump = pyimport("pyscf.tools.fcidump") ############PUT HERE###################
-    pyscf= pyimport("pyscf") ############PUT HERE###################
-    fci_data = pyscf.tools.fcidump.read(
+
+    pyscf_tools_fcidump = pyimport("pyscf.tools.fcidump") 
+    fci_data = pyscf_tools_fcidump.read(
         data_file_path, molpro_orbsym_convention
     )
     println("fci_data loaded")
@@ -29,8 +40,8 @@ function load_tensors_from_fcidump(; data_file_path, molpro_orbsym_convention=tr
     one_body_tensor = pyconvert(Array{Float64},fci_data["H1"])
     two_body_tensor_symmetrized = fci_data["H2"]
     
-    
-    two_body_tensor = pyconvert(Array{Float64}, pyscf.ao2mo.restore(
+    pyscf_ao2mo = pyimport("pyscf.ao2mo")
+    two_body_tensor = pyconvert(Array{Float64}, pyscf_ao2mo.restore(
         "s1", two_body_tensor_symmetrized, num_orbitals
     ))
 
@@ -48,3 +59,34 @@ function load_tensors_from_fcidump(; data_file_path, molpro_orbsym_convention=tr
         extra_attributes,
     )
 end 
+
+
+function compress_tensors(one_body_tensor, two_body_tensor, num_orbitals )
+    # #FUNCTIONS FOR INTERFACING WITH PYTHON
+    # ENV["JULIA_CONDAPKG_BACKEND"] = PY_BACKEND
+
+    # # using PythonCall
+    # UTILS_DIR = @__DIR__
+    # sys = pyimport("sys")
+    # sys.path.append(UTILS_DIR)
+    perm_sym = pyimport("permutation_symmetries" )
+    two_body_tensor_python = Py(two_body_tensor).to_numpy()
+    four_fold_symmetry_bool = perm_sym.check_permutation_symmetries_complex_orbitals(Py(one_body_tensor).to_numpy(), two_body_tensor_python)
+    eight_fold_symmetry_bool = perm_sym.check_permutation_symmetries_real_orbitals(Py(one_body_tensor).to_numpy(), two_body_tensor_python)
+    
+    four_fold_symmetry_bool = pyconvert(Bool, four_fold_symmetry_bool)
+    eight_fold_symmetry_bool = pyconvert(Bool, eight_fold_symmetry_bool)
+    
+    pyscf_ao2mo = pyimport("pyscf.ao2mo")
+    if eight_fold_symmetry_bool
+        println("Eight-fold permutation symmetry detected.")
+        two_body_tensor_bliss_compressed = pyscf_ao2mo.restore("s8", two_body_tensor_python, num_orbitals)
+    elseif four_fold_symmetry_bool
+        println("Four-fold permutation symmetry detected.")
+        two_body_tensor_bliss_compressed = pyscf_ao2mo.restore("s4", two_body_tensor_python, num_orbitals)
+    else
+        throw(ArgumentError("No permutation symmetry detected. At least four-fold symmetry is required."))
+    end
+
+    return two_body_tensor_bliss_compressed
+end
