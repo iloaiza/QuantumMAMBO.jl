@@ -56,8 +56,6 @@ println("Extra attributes: ", extra_attributes)
 H_orig = QuantumMAMBO.eri_to_F_OP(one_body_tensor, two_body_tensor, core_energy, spin_orb=false)
 println("Fermionic operator generated.")
 
-H_orig_cmp = QuantumMAMBO.F_OP_compress(H_orig) #converts from openfermion styled Hamiltonian to pyscf styled Hamiltoian. LPBLISS works with pyscf styled Hamiltonian.
-
 # Run LPBLISS
 ######
 H_bliss_cmp,K_operator=QuantumMAMBO.bliss_linprog(H_orig_cmp, 
@@ -67,8 +65,6 @@ H_bliss_cmp,K_operator=QuantumMAMBO.bliss_linprog(H_orig_cmp,
     SAVELOAD=true, 
     SAVENAME=lpbliss_hdf5_output_loading_file_path)
 println("BLISS optimization/operator retrieval complete.")
-
-H_bliss = QuantumMAMBO.F_OP_converter(H_bliss_cmp) #converts back to openfermion styled Hamiltonian
 
 
 # Retrieve the tensors from the fermionic operator
