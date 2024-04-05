@@ -625,7 +625,7 @@ end
 	Optimizes L1-norm through linear programming.
 	Solvers: HiGHS and Ipopt (HiGHS is usually faster, both are expected to return identical results)
 	Input:
-		The tensors of the input Hamiltonian are assumed to be of the form ``H = \\sum_{ij} h_{ij} a_i^† a_j + \\sum_{ijkl} g_ijkl a_i^† a_j a_k^† a_l``
+		The tensors of the input Hamiltonian are assumed to be of the form ``H = E0 + \\sum_{ij} h_{ij} a_i^† a_j + \\sum_{ijkl} g_ijkl a_i^† a_j a_k^† a_l``
     
 		F::F_OP : (F_OP is defined under src/UTILS/struct.jl)
 		
