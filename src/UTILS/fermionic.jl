@@ -693,4 +693,16 @@ function F_OP_compress(F::F_OP)
 	return F_OP((F.mbts[1],obt,tbt))
 end
 	
-
+function F_OP_space_to_spin(F::F_OP)
+	obt=zeros(2,F.N,F.N)
+	tbt=zeros(4,F.N,F.N,F.N,F.N)
+	for i=1:2
+		obt[i,:,:]=F.mbts[2][:,:]
+	end
+	for i=1:4
+		tbt[i,:,:,:,:]=F.mbts[3][:,:,:,:]
+	end
+	F_spin=F_OP((F.mbts[1],obt,tbt))
+	F_spin_openferm=F_OP_converter(F_spin)
+	return F_spin_openferm
+end
