@@ -58,7 +58,7 @@ println("Fermionic operator generated.")
 
 # Run LPBLISS
 ######
-H_bliss_cmp,K_operator=QuantumMAMBO.bliss_linprog(H_orig_cmp, 
+H_bliss,K_operator=QuantumMAMBO.bliss_linprog(H_orig, 
     num_electrons,
     model="highs", # LP solver used by Gurobi; "highs" or "ipopt". Both give the same answer, while "highs" is faster.
     verbose=true,
@@ -72,7 +72,7 @@ println("BLISS optimization/operator retrieval complete.")
 # These tensors assume the Hamiltonian is in the form:
 # H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
 one_body_tensor_bliss, two_body_tensor_bliss = QuantumMAMBO.F_OP_to_eri(H_bliss)
-core_energy_bliss = core_energy #LPBLISS does not change the core energy
+core_energy_bliss = H_bliss.mbts[1][1] #LPBLISS modification to the core energy.
 println("Tensors retrieved from the fermionic operator.")
 
 # Save the tensors to a FCIDUMP file
@@ -139,7 +139,7 @@ println("Small values eliminated.")
 @time begin
 E_max_bliss, E_min_bliss= QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_bliss_spatial_orbitals, 
                                                             two_body_tensor=two_body_tensor_bliss_spatial_orbitals, 
-                                                            core_energy=core_energy, 
+                                                            core_energy=core_energy_bliss, 
                                                             initial_states=[],
                                                             num_electrons_list=[], 
                                                             steps=25, #Increase this for more accurate results
