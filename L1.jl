@@ -2,7 +2,7 @@
 DO_CSA = false #perform Cartan Sub-Algebra (CSA) decomposition of Hamiltonian
 DO_DF = false #perform Double-Factorization (DF) decomposition of Hamiltonian
 DO_ΔE = false #obtain lower bound ΔE/2 of Hamiltonian, only for small systems!
-FOCK_BOUND = true #obtain lower bound for ΔE/2 using Fock matrix, can be done when ΔE is not accessible!
+FOCK_BOUND = false #obtain lower bound for ΔE/2 using Fock matrix, can be done when ΔE is not accessible!
 DO_AC = false #do anticommuting grouping technique
 DO_OO = false #do orbital optimization routine
 DO_SQRT = false #obtain square-root factorization 1-norms
@@ -14,7 +14,7 @@ INT = false #do interaction picture optimization routines
 verbose = true #verbose for sub-routines
 COUNT = false #whether total number of unitaries should be counted
 BLISS = true #whether block-invariant symmetry shift routine is done
-
+DO_LANCZOS=true #whether ΔE/2 is estimated using Lanczos iteration
 DO_TROTTER = false #whether Trotter α is calculated, requires parallel routines
 DO_FC = false #whether fully-commuting routine is done
 TABLE_PRINT = true #whether final 1-norms are printed for copy-pasting in LaTeX table
@@ -40,7 +40,7 @@ H, η = SAVELOAD_HAM(mol_name, FILENAME)
 
 
 
-RUN_L1(H, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, LATEX_PRINT = TABLE_PRINT, 
+RUN_L1(H, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE,DO_LANCZOS=DO_LANCZOS, LATEX_PRINT = TABLE_PRINT, 
 	DO_FC = DO_FC, SYM_RED=DO_TROTTER, DO_AC = DO_AC, DO_OO = DO_OO, DO_THC = DO_THC, 
 	DO_SQRT = DO_SQRT, DO_TROTTER=DO_TROTTER, DO_MHC = DO_MHC, DO_MTD_CP4 = DO_MTD_CP4, COUNT = COUNT, verbose=verbose, name=FILENAME*".h5",compress=!PySCF_type[1],spin_symmetry=closed_shell[1],rohf=ROHF[1], FOCK_BOUND=FOCK_BOUND)
 
@@ -80,7 +80,7 @@ if BLISS
 	end
 	
 	println("Running 1-norm routines...")
-	RUN_L1(H_bliss, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, LATEX_PRINT = TABLE_PRINT, 
+	RUN_L1(H_bliss, η=η, DO_CSA = DO_CSA, DO_DF = DO_DF, DO_ΔE = DO_ΔE, DO_LANCZOS=DO_LANCZOS, LATEX_PRINT = TABLE_PRINT, 
 		DO_FC = DO_FC, SYM_RED=DO_TROTTER, DO_AC = DO_AC, DO_OO = DO_OO, DO_THC = DO_THC, 
 		DO_SQRT = DO_SQRT, DO_TROTTER=DO_TROTTER, DO_MHC = DO_MHC, DO_MTD_CP4 = DO_MTD_CP4, COUNT = COUNT, verbose=verbose, name=FILENAME*"_BLISS.h5",bliss=true,spin_symmetry=closed_shell[1],rohf=ROHF[1], FOCK_BOUND=FOCK_BOUND)
 end
