@@ -148,6 +148,22 @@ E_max_bliss, E_min_bliss= QuantumMAMBO.lanczos_total_range(one_body_tensor=one_b
                                                             )
 end 
 delta_E_div_2_bliss = (E_max_bliss - E_min_bliss) / 2
+@time begin
+E_max_bliss_subspace, E_min_bliss_subspace = QuantumMAMBO.lanczos_range(one_body_tensor=one_body_tensor_bliss_spatial_orbitals, 
+                                                                        two_body_tensor=two_body_tensor_bliss_spatial_orbitals, 
+                                                                        core_energy=core_energy_bliss, 
+                                                                        num_electrons=num_electrons, 
+                                                                        initial_state=nothing, 
+                                                                        steps=80, #Increase this for more accurate results
+                                                                        spin_orbitals=false
+                                                                        )
+println("Lanczos for the LPBLISS-modified Hamiltonian for $num_electrons electrons is complete.")
+end
+delta_E_div_2_bliss_subspace = (E_max_bliss_subspace - E_min_bliss_subspace) / 2
+
+
+
+delta_E_div_2_bliss = (E_max_bliss - E_min_bliss) / 2
 println("LPBLISS-modified Hamiltonian:")
 println("E_max_bliss: ", E_max_bliss)
 println("E_min_bliss: ", E_min_bliss)
