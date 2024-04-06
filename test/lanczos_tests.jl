@@ -105,6 +105,179 @@ function calc_energy_range_all_num_electrons(; H_to_use, num_spin_orbitals, num_
     return max_energy, min_energy, max_energy_list, min_energy_list
 end
 
+function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_electrons)
+    # Convert to QuantumMAMBO fermion operator
+    ######
+    # println("one_body_tensor: ", one_body_tensor)
+    # println("two_body_tensor: ", two_body_tensor)
+    # println("core_energy: ", core_energy)
+    # println("num_electrons: ", num_electrons)
+    # println("one_body_tensor type: ", typeof(one_body_tensor))
+    # println("two_body_tensor type: ", typeof(two_body_tensor))
+    # println("core_energy type: ", typeof(core_energy))
+    # println("one_body_tensor shape: ", size(one_body_tensor))
+    # println("two_body_tensor shape: ", size(two_body_tensor))
+    H_orig = QuantumMAMBO.eri_to_F_OP(one_body_tensor, two_body_tensor, core_energy, spin_orb=false)
+    # H = E_0 + H_ij a†_i a_j + G_ijkl a†_i a_j a†_k a_l 
+
+
+    # println("Fermionic operator generated.")
+    # println("H_orig: ", H_orig)
+    # mbts = ([core_energy], one_body_tensor, 0.5*two_body_tensor)
+    # H_orig = QuantumMAMBO.F_OP(mbts,false)
+    # println("Fermionic operator generated.")
+    # println("H_orig 2: ", H_orig)
+	
+    # Run LPBLISS
+    ######
+    temp_bliss_output_file_path = "BLISS_TEMP.h5"
+    # Ensure file not already present
+    if isfile(temp_bliss_output_file_path)
+        rm(temp_bliss_output_file_path)
+        println("Removed existing temporary BLISS output file.")
+    end
+    @time begin
+    H_bliss,K_operator=QuantumMAMBO.bliss_linprog(H_orig, 
+        num_electrons,
+        model="highs", # LP solver used by Optim; "highs" or "ipopt". Both give the same answer, while "highs" is faster.
+        verbose=true,
+        SAVELOAD=true, 
+        SAVENAME=temp_bliss_output_file_path)
+    println("BLISS optimization/operator retrieval complete.")
+    end
+    
+    # Calculate halfbandwidths, which are the lower bound on the L1 norm of the Hamiltonian
+    ################################################################################################
+
+    #Original Hamiltonian ##################################
+    println("Calculating halfbandwidths for the original Hamiltonian")
+    # obt_temp = H_orig.mbts[2]
+    # tbt_temp = H_orig.mbts[3]
+    # one_body_tensor_chemist_spatial_orbitals = obt_temp - sum([tbt_temp[:,k,k,:] for k in 1:size(obt_temp)[end]])
+    # two_body_tensor_chemist_spatial_orbitals = tbt_temp
+    one_body_tensor_chemist_spatial_orbitals = H_orig.mbts[2]
+    two_body_tensor_chemist_spatial_orbitals = H_orig.mbts[3]
+
+    QuantumMAMBO.eliminate_small_values!(one_body_tensor_chemist_spatial_orbitals, 1e-8)
+    QuantumMAMBO.eliminate_small_values!(two_body_tensor_chemist_spatial_orbitals, 1e-8)
+    println("Small values eliminated.")
+    @time begin
+    E_max_orig, E_min_orig= QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_chemist_spatial_orbitals, 
+                                                            two_body_tensor=two_body_tensor_chemist_spatial_orbitals, 
+                                                            core_energy=core_energy, 
+                                                            initial_states=[],
+                                                            num_electrons_list=[], 
+                                                            steps=25, #Increase this for more accurate results
+                                                            multiprocessing=false, #Setting to true may cause a segfault
+                                                            spin_orbitals=false
+                                                            )
+    println("Lanczos for the original Hamiltonian in the whole Fock space is complete.")
+    end
+    delta_E_div_2_orig = (E_max_orig - E_min_orig) / 2
+
+
+    @time begin
+    E_max_orig_subspace, E_min_orig_subspace = QuantumMAMBO.lanczos_range(one_body_tensor=one_body_tensor_chemist_spatial_orbitals, 
+                                                            two_body_tensor=two_body_tensor_chemist_spatial_orbitals, 
+                                                            core_energy=core_energy, 
+                                                            num_electrons=num_electrons, 
+                                                            initial_state=nothing, 
+                                                            steps=25, #Increase this for more accurate results
+                                                            spin_orbitals=false
+                                                            )
+    println("Lanczos for the original Hamiltonian for $num_electrons electrons is complete.")
+    end
+    delta_E_div_2_orig_subspace = (E_max_orig_subspace - E_min_orig_subspace) / 2
+
+
+    println("Original Hamiltonian, whole Fock space:")
+    println("E_max_orig: ", E_max_orig)
+    println("E_min_orig: ", E_min_orig)
+    println("delta_E_div_2_orig: ", delta_E_div_2_orig)
+
+    println("Original Hamiltonian, $num_electrons electrons:")
+    println("E_max_orig_subspace: ", E_max_orig_subspace)
+    println("E_min_orig_subspace: ", E_min_orig_subspace)
+    println("delta_E_div_2_orig_subspace: ", delta_E_div_2_orig_subspace)
+
+    #LPBLISS-modified Hamiltonian ##################################
+    println("Calculating halfbandwidths for the LPBLISS-modified Hamiltonian")
+    # one_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[2]    
+    # two_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[3]
+
+    # obt_temp = H_bliss.mbts[2]
+    # tbt_temp = H_bliss.mbts[3]
+    # one_body_tensor_bliss_spatial_orbitals = obt_temp #- sum([tbt_temp[:,k,k,:] for k in 1:size(obt_temp)[end]])
+    # two_body_tensor_bliss_spatial_orbitals = tbt_temp
+
+    core_energy_bliss = H_bliss.mbts[1][1]
+    one_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[2]    
+    two_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[3]
+
+    QuantumMAMBO.eliminate_small_values!(one_body_tensor_bliss_spatial_orbitals, 1e-8)
+    QuantumMAMBO.eliminate_small_values!(two_body_tensor_bliss_spatial_orbitals, 1e-8)
+    println("Small values eliminated.")
+    @time begin
+    E_max_bliss, E_min_bliss= QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_bliss_spatial_orbitals, 
+                                                                two_body_tensor=two_body_tensor_bliss_spatial_orbitals, 
+                                                                core_energy=core_energy_bliss, 
+                                                                initial_states=[],
+                                                                num_electrons_list=[], 
+                                                                steps=25, #Increase this for more accurate results
+                                                                multiprocessing=false, #Setting to true may cause a segfault
+                                                                spin_orbitals=false
+                                                                )
+    println("Lanczos for the LPBLISS-modified Hamiltonian in the whole Fock space is complete.")
+    end
+    delta_E_div_2_bliss = (E_max_bliss - E_min_bliss) / 2
+
+
+    @time begin
+    E_max_bliss_subspace, E_min_bliss_subspace = QuantumMAMBO.lanczos_range(one_body_tensor=one_body_tensor_bliss_spatial_orbitals, 
+                                                                            two_body_tensor=two_body_tensor_bliss_spatial_orbitals, 
+                                                                            core_energy=core_energy_bliss, 
+                                                                            num_electrons=num_electrons, 
+                                                                            initial_state=nothing, 
+                                                                            steps=25, #Increase this for more accurate results
+                                                                            spin_orbitals=false
+                                                                            )
+    println("Lanczos for the LPBLISS-modified Hamiltonian for $num_electrons electrons is complete.")
+    end
+    delta_E_div_2_bliss_subspace = (E_max_bliss_subspace - E_min_bliss_subspace) / 2
+
+    println("LPBLISS-modified Hamiltonian, whole Fock space:")
+    println("E_max_bliss: ", E_max_bliss)
+    println("E_min_bliss: ", E_min_bliss)
+    println("delta_E_div_2_bliss: ", delta_E_div_2_bliss)
+    
+    println("LPBLISS-modified Hamiltonian, $num_electrons electrons:")
+    println("E_max_bliss_subspace: ", E_max_bliss_subspace)
+    println("E_min_bliss_subspace: ", E_min_bliss_subspace)
+    println("delta_E_div_2_bliss_subspace: ", delta_E_div_2_bliss_subspace)
+
+    println("Orig core energy: ", H_orig.mbts[1][1])
+    println("Bliss core energy: ", H_bliss.mbts[1][1])
+    println("FCIDUMP core energy: ", core_energy)
+
+
+    results_dict = Dict("E_max_orig" => E_max_orig, "E_min_orig" => E_min_orig, 
+                        "E_max_orig_subspace" => E_max_orig_subspace, "E_min_orig_subspace" => E_min_orig_subspace,
+                        "E_max_bliss" => E_max_bliss, "E_min_bliss" => E_min_bliss, 
+                        "E_max_bliss_subspace" => E_max_bliss_subspace, "E_min_bliss_subspace" => E_min_bliss_subspace,
+                        "delta_E_div_2_orig" => delta_E_div_2_orig, "delta_E_div_2_orig_subspace" => delta_E_div_2_orig_subspace, 
+                        "delta_E_div_2_bliss" => delta_E_div_2_bliss, "delta_E_div_2_bliss_subspace" => delta_E_div_2_bliss_subspace)
+
+
+    # Remove temp file
+    if isfile(temp_bliss_output_file_path)
+        rm(temp_bliss_output_file_path)
+        println("Removed existing temporary BLISS output file.")
+    end
+    
+    return results_dict
+
+end
+
 function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int64=0, charge::Int64=0, multiplicity::Int64=1)
     println("----------------------------------------------------------------")
     println("basis: ", basis)
@@ -311,6 +484,10 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     println("E_max_lanczo_final_total: ", E_max_lanczo_final_total)
     println("E_min_lanczo_final_total: ", E_min_lanczo_final_total)
 
+    bliss_results_dict = calc_bliss_and_lanczos(one_body_tensor,
+                        pyconvert(Array{Float64,4},two_body_tensor), 
+                        nuc_rep_energy, num_electrons)
+
     return (E_FCI_HF, 
         E_FCI_UHF, 
         E_FCI_orb, 
@@ -320,7 +497,8 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
         max_scipy_FCI_energy_all_electrons, 
         E_max_lanczos_final, 
         E_max_lanczo_final_total, 
-        neutral_charge_max_scipy_FCI_energy
+        neutral_charge_max_scipy_FCI_energy,
+        bliss_results_dict
         )
 end
 
@@ -329,7 +507,10 @@ end
     bond_length = 1.0
     geometry = "H 0 0 0; H 0 0 $bond_length"
 
-    E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy = calc_lanczos_test_energies(basis=basis, geometry=geometry)
+    (E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, 
+    E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, 
+    E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy, bliss_results_dict
+    ) = calc_lanczos_test_energies(basis=basis, geometry=geometry)
 
     # Check that the ground state energies are the same
     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
@@ -342,14 +523,32 @@ end
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
+    # Check BLISS results
+    @test isapprox(E_max_lanczo_final_total, bliss_results_dict["E_max_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final_total, bliss_results_dict["E_min_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_orig_subspace"], bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
+
 end
+
 
 @testset "lanczos_fci_h2_sto6g" begin
     basis = "sto6g" # 4 spin orbitals
     bond_length = 1.0
     geometry = "H 0 0 0; H 0 0 $bond_length"
 
-    E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy = calc_lanczos_test_energies(basis=basis, geometry=geometry)
+    (E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, 
+    E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, 
+    E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy, bliss_results_dict
+    ) =  calc_lanczos_test_energies(basis=basis, geometry=geometry)
 
     # Check that the ground state energies are the same
     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
@@ -362,6 +561,19 @@ end
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
+    # Check BLISS results
+    @test isapprox(E_max_lanczo_final_total, bliss_results_dict["E_max_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final_total, bliss_results_dict["E_min_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_orig_subspace"], bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
 end
 
 @testset "lanczos_fci_h2neg_sto6g" begin
@@ -372,16 +584,10 @@ end
     spin = 1
     multiplicity = 2
 
-    (E_FCI_HF, 
-    E_FCI_UHF, 
-    E_FCI_orb, 
-    min_scipy_FCI_energy_all_electrons, 
-    E_min_lanczo_final, 
-    E_min_lanczo_final_total, 
-    max_scipy_FCI_energy_all_electrons, 
-    E_max_lanczo_final, 
-    E_max_lanczo_final_total, 
-    neutral_charge_max_scipy_FCI_energy) = calc_lanczos_test_energies(basis=basis, 
+    (E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, 
+    E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, 
+    E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy, bliss_results_dict
+    ) =  calc_lanczos_test_energies(basis=basis, 
                                                                         geometry=geometry, 
                                                                         spin=spin, 
                                                                         charge=charge, 
@@ -398,6 +604,19 @@ end
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
+    # Check BLISS results
+    @test isapprox(E_max_lanczo_final_total, bliss_results_dict["E_max_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final_total, bliss_results_dict["E_min_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_orig_subspace"], bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
 end
 
 # @testset "lanczos_fci_h2_cc-pVDZ" begin
@@ -460,16 +679,10 @@ end
     geometry = "H 0 0 0"
     charge = -1
 
-    (E_FCI_HF,
-        E_FCI_UHF,
-        E_FCI_orb,
-        min_scipy_FCI_energy_all_electrons,
-        E_min_lanczo_final,
-        E_min_lanczo_final_total,
-        max_scipy_FCI_energy_all_electrons,
-        E_max_lanczo_final,
-        E_max_lanczo_final_total,
-        neutral_charge_max_scipy_FCI_energy) = calc_lanczos_test_energies(basis=basis,
+    (E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, 
+    E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, 
+    E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy, bliss_results_dict
+    ) =  calc_lanczos_test_energies(basis=basis,
         geometry=geometry,
         spin=0,
         charge=charge,
@@ -486,6 +699,19 @@ end
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
+    # Check BLISS results
+    @test isapprox(E_max_lanczo_final_total, bliss_results_dict["E_max_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final_total, bliss_results_dict["E_min_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_orig_subspace"], bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
 end
 
 # @testset "lanczos_fci_lih_cc-pVDZ" begin
@@ -513,7 +739,10 @@ end
     bond_length = 1.0
     geometry = "H 0 0 0; Li 0 0 $bond_length"
 
-    E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy = calc_lanczos_test_energies(basis=basis, geometry=geometry)
+    (E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, 
+    E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, 
+    E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy, bliss_results_dict
+    ) =  calc_lanczos_test_energies(basis=basis, geometry=geometry)
 
     # Check that the ground state energies are the same
     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
@@ -526,6 +755,19 @@ end
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
+    # Check BLISS results
+    @test isapprox(E_max_lanczo_final_total, bliss_results_dict["E_max_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final_total, bliss_results_dict["E_min_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_orig_subspace"], bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
 
 
 end
@@ -535,7 +777,10 @@ end
     bond_length = 1.0
     geometry = "Be 0 0 0; H 0 0 $bond_length; H 0 0 -$bond_length"
 
-    E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy = calc_lanczos_test_energies(basis=basis, geometry=geometry)
+    (E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, 
+    E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, 
+    E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy, bliss_results_dict
+    ) =  calc_lanczos_test_energies(basis=basis, geometry=geometry)
 
     # Check that the ground state energies are the same
     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
@@ -548,6 +793,19 @@ end
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
+    # Check BLISS results
+    @test isapprox(E_max_lanczo_final_total, bliss_results_dict["E_max_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final_total, bliss_results_dict["E_min_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_orig_subspace"], bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
 
 
 end
@@ -561,7 +819,10 @@ end
     yDistance = bond_length * cos(angle)
     geometry = "O 0 0 0; H -$xDistance $yDistance 0; H $xDistance $yDistance 0"
 
-    E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy = calc_lanczos_test_energies(basis=basis, geometry=geometry)
+    (E_FCI_HF, E_FCI_UHF, E_FCI_orb, min_scipy_FCI_energy_all_electrons, E_min_lanczo_final, 
+    E_min_lanczo_final_total, max_scipy_FCI_energy_all_electrons, E_max_lanczo_final, 
+    E_max_lanczo_final_total, neutral_charge_max_scipy_FCI_energy, bliss_results_dict
+    ) =  calc_lanczos_test_energies(basis=basis, geometry=geometry)
 
     # Check that the ground state energies are the same
     @test isapprox(E_FCI_HF, E_FCI_UHF, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
@@ -574,4 +835,17 @@ end
     @test isapprox(neutral_charge_max_scipy_FCI_energy, E_max_lanczo_final, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
     @test isapprox(max_scipy_FCI_energy_all_electrons, E_max_lanczo_final_total, atol=atol_lanczos_test, rtol=rtol_lanczos_test)
 
+    # Check BLISS results
+    @test isapprox(E_max_lanczo_final_total, bliss_results_dict["E_max_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final_total, bliss_results_dict["E_min_orig"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_orig_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(E_max_lanczo_final, bliss_results_dict["E_max_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test isapprox(E_min_lanczo_final, bliss_results_dict["E_min_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_orig_subspace"], bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_lanczos_test, rtol=rtol_lanczos_test)
+    @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
+    @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
 end 

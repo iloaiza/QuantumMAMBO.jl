@@ -574,7 +574,9 @@ function eri_to_F_OP(obt, tbt, hconst :: Array = [0]; spin_orb=false)
 	# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
 	#Internally stored as:
 	# H = E_0 + (h_ij-0.5*sum_k[g_ikkj]) a†_i a_j + 0.5*g_ijkl a†_i a_j a†_k a_l 
+	#   = E_0 + H_ij a†_i a_j + G_ijkl a†_i a_j a†_k a_l 
 	# where E_0 = hconst, h_ij = obt, g_ijkl = tbt,
+	# H_ij = obt - 0.5*sum_k[tbt[:,k,k,:]], G_ijkl = 0.5*tbt,
 	# and i,j,k,l refer to spatial orbitals if spin_orb = false, 
 	# and spin-orbitals if spin_orb = true
 	N = size(obt)[1]
@@ -591,7 +593,9 @@ function eri_to_F_OP(obt, tbt, hconst :: Number; spin_orb=false)
 	# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
 	#Internally stored as:
 	# H = E_0 + (h_ij-0.5*sum_k[g_ikkj]) a†_i a_j + 0.5*g_ijkl a†_i a_j a†_k a_l 
+	#   = E_0 + H_ij a†_i a_j + G_ijkl a†_i a_j a†_k a_l 
 	# where E_0 = hconst, h_ij = obt, g_ijkl = tbt,
+	# H_ij = obt - 0.5*sum_k[tbt[:,k,k,:]], G_ijkl = 0.5*tbt,
 	# and i,j,k,l refer to spatial orbitals if spin_orb = false, 
 	# and spin-orbitals if spin_orb = true
 	return eri_to_F_OP(obt, tbt, [hconst],spin_orb=spin_orb)

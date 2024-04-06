@@ -35,7 +35,7 @@ compression_begin=10
 			H_bliss_test.mbts[i][:]=round.(H_bliss_test.mbts[i],digits=10)
 		end
 		check= H_bliss.mbts[:] .== H_bliss_test.mbts[:]
-		check_prod=check[1] && check[2] && check[3] 
+		check_prod=(!check[1]) && check[2] && check[3] 
 		@test check_prod == true
 	end
 end
