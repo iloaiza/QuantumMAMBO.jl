@@ -480,7 +480,7 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 
 	println("\n\nCalculating 1-norms...")
 	println("1-body:")
-	@time λ1 = one_body_L1(H, count=COUNT)
+	@time λ1 = OBT_L1(H_cmp)
 	@show λ1
 
 	if DO_TROTTER
