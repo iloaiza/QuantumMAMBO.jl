@@ -376,6 +376,45 @@ function PAULI_L1(F :: F_OP; count=false)
 	return λ1+λ2 
 end
 
+function OBT_L1(F::F_OP)
+	
+	if size(F.mbts[2],1)==size(F.mbts[3],1)
+	
+		if F.filled[2] && F.filled[3]
+			obt_mod = F.mbts[2] + ob_correction(F)
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[2]
+			obt_mod = F.mbts[2]
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[3]
+			obt_mod = ob_correction(F)
+			λ1 = sum(abs.(obt_mod))
+		else
+			λ1 = 0
+		end
+		
+		
+	else
+		if F.filled[2] && F.filled[3]
+			obt_mod = F.mbts[2] + ob_correction(F)
+			
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[2]
+			obt_mod = F.mbts[2]
+			λ1 = sum(abs.(obt_mod))
+		elseif F.filled[3]
+			obt_mod = ob_correction(F)
+			λ1 = sum(abs.(obt_mod))
+		else
+			λ1 = 0
+		end
+		λ1=λ1/2
+		
+	end
+	
+	return λ1
+end
+
 function PAULI_L2(F::F_OP; count=false)
 	if count
 		return PAULI_L1(Q_OP(F), count=true)
