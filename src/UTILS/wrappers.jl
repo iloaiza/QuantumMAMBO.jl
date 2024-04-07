@@ -362,10 +362,12 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		H_cmp=F_OP_compress(H)
 		@show PAULI_L1(H_cmp)
 	else
+		H_cmp=H
 		@show PAULI_L1(H)
 	end
 	
 	if spin_symmetry==false && rohf==false && (bliss==true || compress==false)
+		H_cmp=H
 		H=F_OP_converter(H)
 	end
 	
@@ -441,7 +443,7 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	end
 
 	println("\nPauli:")
-	@time λPauli = PAULI_L1(H, count=COUNT)
+	@time λPauli = PAULI_L1(H_cmp, count=COUNT)
 	@show λPauli
 	push!(METHODS, "Pauli")
 	push!(Λs, λPauli)
