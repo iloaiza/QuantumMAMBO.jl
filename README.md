@@ -1,6 +1,73 @@
 # QuantumMAMBO.jl: Efficient many-body routines in Julia
-## Version 1.2.2
+## Version 1.3.0
+QuantumMAMBO provides ways of evaluating and improving the costs of ground state energy estimation quantum algorithms.
+
+## Linear Programming Block Invariant Symmetry Shift (LPBLISS)
+LPBLISS uses the Block Invariant Symmetry Shift to reduce the L1 norm of a given Hamiltonian. The required optimization is 
+formulated as a linear program.
+
+An example of how to use LPBLISS to take in an FCIDUMP file and then return an FCIDUMP file of the LPBLISS-treated Hamiltonian is found in `examples/lpbliss_fcidump_run.jl`. 
+
+Using a unix-flavour OS (Mac OS X, Linux, Windows Subsystem for Linux), the example can be run with the following steps.
+
+1. If you do not already have Julia installed, run `curl -fsSL https://install.julialang.org | sh` in the terminal to download and begin the installation process. After installation, close and reopen the terminal.
+
+2. Create and enter a folder for the code with
+```
+$ mkdir QuantumMAMBO_LPBLISS
+$ cd QuantumMAMBO_LPBLISS/
+```
+
+3. Download this branch of QuantumMAMBO and unzip with
+```
+$ curl -LO https://github.com/iloaiza/QuantumMAMBO.jl/archive/refs/heads/beta_merge.zip
+$ unzip beta_marge.zip
+```
+4. Enter the unzipped folder and run the example with
+```
+$ cd QuantumMAMBO.jl-beta_merge
+$ julia examples/lpbliss_fcidump_run.jl
+```
+Initial compilation and running of the code can take around 10 minutes, while subsequent runs are faster. After much prior output, you should see the following after the run:
+```
+-------------------------Hamiltonian Info-------------------------------------
+FCIDUMP file path: examples/data/fcidump.36_1ru_II_2pl
+Number of orbitals: 7
+Number of spin orbitals: 14
+Number of electrons: 12
+Two S: 0
+Two Sz: 0
+Orbital symmetry: [0, 0, 0, 0, 0, 0, 0]
+Extra attributes: Dict("ISYM" => 1)
+-------------------------Delta E / 2, whole Fock space-------------------------------------
+Original Hamiltonian, whole Fock space:
+E_max, orig: -2881.779326309789
+E_min, orig: -2982.401506717449
+ΔE/2, orig: 50.31109020382996
+LPBLISS-modified Hamiltonian, whole Fock space:
+E_max, LPBLISS: -2968.3953798905172
+E_min, LPBLISS: -2988.732425049674
+ΔE/2, LPBLISS: 10.168522579578394
+-------------------------Delta E / 2, Subspace------------------------------
+Original Hamiltonian, 12 electrons:
+E_max, orig, subspace: -2968.537986371558
+E_min, orig, subspace: -2982.401515039751
+ΔE/2, orig, subspace: 6.931764334096442
+LPBLISS-modified Hamiltonian, 12 electrons:
+E_max, LPBLISS, subspace: -2968.537986371558
+E_min, LPBLISS, subspace: -2982.401515039752
+ΔE/2, LPBLISS, subspace: 6.9317643340971244
+------------------------L1 NORMS-------------------------------
+Pauli L1 Norm, original Hamiltonian: 62.86697375040692
+Pauli L1 Norm, LPBLISS-treated Hamiltonian: 13.325570371408116
+```
+See the last two lines of the output for the L1 norms of the Pauli version of LCU before and after LPBLISS.
+
+After the run, you will see an FCIDUMP file `examples/data/fcidump.36_1ru_II_2pl_BLISS` and an HDF5 file `examples/data/36_1ru_II_2pl_BLISS.h5` containing the LPBLISS-treated Hamiltonian.
+
+# Many-body Structures
 QuantumMAMBO provides structures for many-body objects in quantum computing. They can all be seen in `src/UTILS/structures.jl`. In particular, it provides the fermionic operators `F_OP` specially geared towards two-electron number-conserving operators, `Q_OP` for qubit operators, and `M_OP`for Majorana operators coming from fermionic operators. All operators and unitaries have structured classes, which in the future will be used for efficient compilation of quantum circuits and resource estimates.
+
 
 
 ## Using QuantumMAMBO.jl
