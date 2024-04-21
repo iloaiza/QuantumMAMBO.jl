@@ -649,7 +649,7 @@ end
 		The format of the one and two body tensors in the output F_OP objects (i.e. F_bliss and S) are exactly identical to that of their input. 	
 
 """
-function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5")
+function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAVING, SAVENAME=DATAFOLDER*"BLISS.h5", num_threads::Int=1)
 	if F.spin_orb
 		error("BLISS not defined for spin-orb=true!")
 	end
@@ -661,7 +661,11 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
     else
         error("Not defined for model = $model")
     end
-    
+
+    if num_threads > 1
+		HiGHS.Highs_resetGlobalScheduler(1)
+		set_attribute(L1_OPT, JuMP.MOI.NumberOfThreads(), num_threads)
+	end
     
     if verbose == false
         set_silent(L1_OPT)

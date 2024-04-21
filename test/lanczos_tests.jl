@@ -144,7 +144,9 @@ function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_
         model="highs", # LP solver used by Optim; "highs" or "ipopt". Both give the same answer, while "highs" is faster.
         verbose=true,
         SAVELOAD=true, 
-        SAVENAME=temp_bliss_output_file_path)
+        SAVENAME=temp_bliss_output_file_path,
+        num_threads=3,
+        )
     println("BLISS optimization/operator retrieval complete.")
     end
     

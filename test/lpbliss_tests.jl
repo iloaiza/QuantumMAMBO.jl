@@ -27,7 +27,7 @@ compression_begin=10
 		if idx>=compression_begin
 			H=F_OP_compress(H)
 		end
-		H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5")
+		H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5",num_threads=3)
 		#H_bliss_test,_=bliss_linprog(H_test, η_test)
 		for i=1:3
 		
@@ -46,7 +46,7 @@ molecules=["h2","lih","beh2","h3","ch3"]
 	for (idx, mol_name) in enumerate(molecules)
 		FILENAME = TESTFOLDER*mol_name
 		H,η = SAVELOAD_HAM(mol_name, FILENAME)
-		H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5")
+		H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5",num_threads=3)
 		H_grad_bliss=quadratic_bliss_optimizer(H, η)
 		
 		

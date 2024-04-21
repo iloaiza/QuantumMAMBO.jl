@@ -40,3 +40,9 @@ test/*_BLISS.h5
 examples/data/36_1ru_II_2pl_BLISS.h5
 examples/data/fcidump.36_1ru_II_2pl_BLISS
 examples/lpbliss_fcidump_run_aritra.jl
+lpbliss_output/*
+*.sh
+*_output.txt
+examples/lpbliss_fcidump_run_production_cc.jl
+examples/lpbliss_fcidump_run_production.jl
+lanczos_tests_temp.jl
