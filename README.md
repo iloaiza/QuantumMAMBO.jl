@@ -21,7 +21,7 @@ $ cd QuantumMAMBO_LPBLISS/
 3. Download this branch of QuantumMAMBO and unzip with
 ```
 $ curl -LO https://github.com/iloaiza/QuantumMAMBO.jl/archive/refs/heads/beta_merge.zip
-$ unzip beta_marge.zip
+$ unzip beta_merge.zip
 ```
 4. Enter the unzipped folder and run the example with
 ```

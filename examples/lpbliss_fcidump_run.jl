@@ -134,7 +134,7 @@ E_min_orig) = QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_c
                                                 initial_states=[],
                                                 num_electrons_list=[], 
                                                 steps=num_lanczos_steps_whole_fock_space, #Increase this for more accurate results
-                                                multiprocessing=false, #Setting to true may cause a segfault
+                                                multiprocessing=true,
                                                 spin_orbitals=false
                                                 )
 println("Lanczos for the original Hamiltonian in the whole Fock space is complete.")
@@ -176,7 +176,7 @@ E_min_bliss) = QuantumMAMBO.lanczos_total_range(one_body_tensor=one_body_tensor_
                                                 initial_states=[],
                                                 num_electrons_list=[], 
                                                 steps=num_lanczos_steps_whole_fock_space, #Increase this for more accurate results
-                                                multiprocessing=false, #Setting to true may cause a segfault
+                                                multiprocessing=true,
                                                 spin_orbitals=false
                                                 )
 println("Lanczos for the LPBLISS-modified Hamiltonian in the whole Fock space is complete.")
