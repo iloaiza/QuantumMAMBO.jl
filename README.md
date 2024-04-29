@@ -14,18 +14,18 @@ Using a unix-flavour OS (Mac OS X, Linux, Windows Subsystem for Linux), the exam
 
 2. Create and enter a folder for the code with
 ```
-$ mkdir QuantumMAMBO_LPBLISS
-$ cd QuantumMAMBO_LPBLISS/
+$ mkdir QuantumMAMBO_deltaE
+$ cd QuantumMAMBO_deltaE/
 ```
 
 3. Download this branch of QuantumMAMBO and unzip with
 ```
-$ curl -LO https://github.com/iloaiza/QuantumMAMBO.jl/archive/refs/heads/beta_merge.zip
-$ unzip beta_merge.zip
+$ curl -LO https://github.com/iloaiza/QuantumMAMBO.jl/archive/refs/heads/deltaE_pyscf_upgrades.zip
+$ unzip deltaE_pyscf_upgrades.zip
 ```
 4. Enter the unzipped folder and run the example with
 ```
-$ cd QuantumMAMBO.jl-beta_merge
+$ cd QuantumMAMBO.jl-deltaE_pyscf_upgrades
 $ julia examples/lpbliss_fcidump_run.jl
 ```
 Initial compilation and running of the code can take around 10 minutes, while subsequent runs are faster. After much prior output, you should see the following after the run:
