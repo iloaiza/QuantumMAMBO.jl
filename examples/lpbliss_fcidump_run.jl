@@ -114,10 +114,35 @@ println("LPBLISS-modified tensors written to FCIDUMP file.")
 ################################################################################################
 num_lanczos_steps_whole_fock_space = 3 # Increase this for more accurate results
 num_lanczos_steps_subspace = 5 # Increase this for more accurate results
+pyscf_fci_max_cycle = 1000 # May want to reduce this for speed
+pyscf_fci_conv_tol = 1E-3 # Will probably want a convergence tolerance (conv_tol) around chemical accuracy (1e-3), 
+                            # or perhaps looser if the calculations are too slow.
 
 #Original Hamiltonian 
 ######
 println("Calculating halfbandwidths for the original Hamiltonian")
+
+QuantumMAMBO.eliminate_small_values!(one_body_tensor, 1e-8)
+QuantumMAMBO.eliminate_small_values!(two_body_tensor, 1e-8)
+println("Small values eliminated.")
+@time begin
+# pyscf_full_ci assumes the Hamiltonian is in the form:
+# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+# ijkl refer to spatial orbitals
+(E_min_orig, E_max_orig, E_min_orig_subspace, E_max_orig_subspace) = QuantumMAMBO.pyscf_full_ci(one_body_tensor, 
+                                                                        two_body_tensor, 
+                                                                        core_energy,
+                                                                        num_electrons,
+                                                                        pyscf_fci_max_cycle,
+                                                                        pyscf_fci_conv_tol)
+
+println("pyscf FCI for the original Hamiltonian in the whole Fock space and for $num_electrons electrons is complete.")
+end
+delta_E_div_2_orig = (E_max_orig - E_min_orig) / 2
+delta_E_div_2_orig_subspace = (E_max_orig_subspace - E_min_orig_subspace) / 2
+
+#Below comment block for the sdstate Lanczos approach
+#=
 one_body_tensor_chemist_spatial_orbitals = H_orig.mbts[2]
 two_body_tensor_chemist_spatial_orbitals = H_orig.mbts[3]
 # The tensors inside H_orig assume the Hamiltonian is in the form:
@@ -143,6 +168,7 @@ delta_E_div_2_orig = (E_max_orig - E_min_orig) / 2
 
 
 @time begin
+
 (E_max_orig_subspace, 
 E_min_orig_subspace) = QuantumMAMBO.lanczos_range(one_body_tensor=one_body_tensor_chemist_spatial_orbitals, 
                                                     two_body_tensor=two_body_tensor_chemist_spatial_orbitals, 
@@ -155,10 +181,33 @@ E_min_orig_subspace) = QuantumMAMBO.lanczos_range(one_body_tensor=one_body_tenso
 println("Lanczos for the original Hamiltonian for $num_electrons electrons is complete.")
 end
 delta_E_div_2_orig_subspace = (E_max_orig_subspace - E_min_orig_subspace) / 2
+=#
 
 #LPBLISS-modified Hamiltonian 
 ######
 println("Calculating halfbandwidths for the LPBLISS-modified Hamiltonian")
+
+QuantumMAMBO.eliminate_small_values!(one_body_tensor_bliss, 1e-8)
+QuantumMAMBO.eliminate_small_values!(two_body_tensor_bliss, 1e-8)
+println("Small values eliminated.")
+@time begin
+# pyscf_full_ci assumes the Hamiltonian is in the form:
+# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+# ijkl refer to spatial orbitals
+(E_min_bliss, E_max_bliss, E_min_bliss_subspace, E_max_bliss_subspace) = QuantumMAMBO.pyscf_full_ci(one_body_tensor_bliss, 
+                                                                        two_body_tensor_bliss, 
+                                                                        core_energy_bliss,
+                                                                        num_electrons,
+                                                                        pyscf_fci_max_cycle,
+                                                                        pyscf_fci_conv_tol)
+
+println("pyscf FCI for the LPBLISS-modified Hamiltonian in the whole Fock space and for $num_electrons electrons is complete.")
+end
+delta_E_div_2_bliss = (E_max_bliss - E_min_bliss) / 2
+delta_E_div_2_bliss_subspace = (E_max_bliss_subspace - E_min_bliss_subspace) / 2
+
+#Below comment block for the sdstate Lanczos approach
+#=
 core_energy_bliss = H_bliss.mbts[1][1]
 one_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[2]    
 two_body_tensor_bliss_spatial_orbitals = H_bliss.mbts[3]
@@ -197,6 +246,7 @@ E_min_bliss_subspace) = QuantumMAMBO.lanczos_range(one_body_tensor=one_body_tens
 println("Lanczos for the LPBLISS-modified Hamiltonian for $num_electrons electrons is complete.")
 end
 delta_E_div_2_bliss_subspace = (E_max_bliss_subspace - E_min_bliss_subspace) / 2
+=#
 
 # Check BLISS results are as expected
 ######

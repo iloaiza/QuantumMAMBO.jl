@@ -107,7 +107,8 @@ function calc_energy_range_all_num_electrons(; H_to_use, num_spin_orbitals, num_
     return max_energy, min_energy, max_energy_list, min_energy_list
 end
 
-function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_electrons)
+
+function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_electrons,two_sz)
     # Convert to QuantumMAMBO fermion operator
     ######
     # println("one_body_tensor: ", one_body_tensor)
@@ -144,15 +145,39 @@ function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_
         model="highs", # LP solver used by Optim; "highs" or "ipopt". Both give the same answer, while "highs" is faster.
         verbose=true,
         SAVELOAD=true, 
-        SAVENAME=temp_bliss_output_file_path,
-        num_threads=3,
-        )
+        SAVENAME=temp_bliss_output_file_path)
     println("BLISS optimization/operator retrieval complete.")
     end
-    
+
+
+    (E_min_FS_pyscf_orig, 
+    E_max_FS_pyscf_orig, 
+    E_min_ENS_pyscf_orig, 
+    E_max_ENS_pyscf_orig) = QuantumMAMBO.pyscf_full_ci(one_body_tensor,
+                                        two_body_tensor,
+                                        core_energy,
+                                        num_electrons,
+                                        1000,
+                                        0.5*atol_bliss_test)
+    delta_E_div_2_FS_pyscf_orig = (E_max_FS_pyscf_orig - E_min_FS_pyscf_orig) / 2
+    delta_E_div_2_ENS_pyscf_orig = (E_max_ENS_pyscf_orig - E_min_ENS_pyscf_orig) / 2
+
+    one_body_tensor_bliss, two_body_tensor_bliss = QuantumMAMBO.F_OP_to_eri(H_bliss)
+    core_energy_bliss = H_bliss.mbts[1][1]
+    (E_min_FS_pyscf_lpbliss, 
+    E_max_FS_pyscf_lpbliss, 
+    E_min_ENS_pyscf_lpbliss, 
+    E_max_ENS_pyscf_lpbliss) = QuantumMAMBO.pyscf_full_ci(one_body_tensor_bliss,
+                                        two_body_tensor_bliss,
+                                        core_energy_bliss,
+                                        num_electrons,
+                                        1000,
+                                        0.5*atol_bliss_test)                                        
+    delta_E_div_2_FS_pyscf_lpbliss = (E_max_FS_pyscf_lpbliss - E_min_FS_pyscf_lpbliss) / 2
+    delta_E_div_2_ENS_pyscf_lpbliss = (E_max_ENS_pyscf_lpbliss - E_min_ENS_pyscf_lpbliss) / 2
     # Calculate halfbandwidths, which are the lower bound on the L1 norm of the Hamiltonian
     ################################################################################################
-
+    num_electrons_list = collect(0:2*size(one_body_tensor)[1])
     #Original Hamiltonian ##################################
     println("Calculating halfbandwidths for the original Hamiltonian")
     # obt_temp = H_orig.mbts[2]
@@ -171,7 +196,7 @@ function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_
                                                             core_energy=core_energy, 
                                                             initial_states=[],
                                                             num_electrons_list=[], 
-                                                            steps=25, #Increase this for more accurate results
+                                                            steps=75, #Increase this for more accurate results
                                                             multiprocessing=false, #Setting to true may cause a segfault
                                                             spin_orbitals=false
                                                             )
@@ -186,7 +211,7 @@ function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_
                                                             core_energy=core_energy, 
                                                             num_electrons=num_electrons, 
                                                             initial_state=nothing, 
-                                                            steps=25, #Increase this for more accurate results
+                                                            steps=75, #Increase this for more accurate results
                                                             spin_orbitals=false
                                                             )
     println("Lanczos for the original Hamiltonian for $num_electrons electrons is complete.")
@@ -227,7 +252,7 @@ function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_
                                                                 core_energy=core_energy_bliss, 
                                                                 initial_states=[],
                                                                 num_electrons_list=[], 
-                                                                steps=25, #Increase this for more accurate results
+                                                                steps=75, #Increase this for more accurate results
                                                                 multiprocessing=false, #Setting to true may cause a segfault
                                                                 spin_orbitals=false
                                                                 )
@@ -242,7 +267,7 @@ function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_
                                                                             core_energy=core_energy_bliss, 
                                                                             num_electrons=num_electrons, 
                                                                             initial_state=nothing, 
-                                                                            steps=25, #Increase this for more accurate results
+                                                                            steps=75, #Increase this for more accurate results
                                                                             spin_orbitals=false
                                                                             )
     println("Lanczos for the LPBLISS-modified Hamiltonian for $num_electrons electrons is complete.")
@@ -263,13 +288,19 @@ function calc_bliss_and_lanczos(one_body_tensor,two_body_tensor,core_energy,num_
     println("Bliss core energy: ", H_bliss.mbts[1][1])
     println("FCIDUMP core energy: ", core_energy)
 
-
+    
     results_dict = Dict("E_max_orig" => E_max_orig, "E_min_orig" => E_min_orig, 
                         "E_max_orig_subspace" => E_max_orig_subspace, "E_min_orig_subspace" => E_min_orig_subspace,
                         "E_max_bliss" => E_max_bliss, "E_min_bliss" => E_min_bliss, 
                         "E_max_bliss_subspace" => E_max_bliss_subspace, "E_min_bliss_subspace" => E_min_bliss_subspace,
                         "delta_E_div_2_orig" => delta_E_div_2_orig, "delta_E_div_2_orig_subspace" => delta_E_div_2_orig_subspace, 
-                        "delta_E_div_2_bliss" => delta_E_div_2_bliss, "delta_E_div_2_bliss_subspace" => delta_E_div_2_bliss_subspace)
+                        "delta_E_div_2_bliss" => delta_E_div_2_bliss, "delta_E_div_2_bliss_subspace" => delta_E_div_2_bliss_subspace,
+                        "E_min_FS_pyscf_orig" => E_min_FS_pyscf_orig, "E_max_FS_pyscf_orig" => E_max_FS_pyscf_orig,
+                        "E_min_ENS_pyscf_orig" => E_min_ENS_pyscf_orig, "E_max_ENS_pyscf_orig" => E_max_ENS_pyscf_orig,
+                        "E_min_FS_pyscf_lpbliss" => E_min_FS_pyscf_lpbliss, "E_max_FS_pyscf_lpbliss" => E_max_FS_pyscf_lpbliss,
+                        "E_min_ENS_pyscf_lpbliss" => E_min_ENS_pyscf_lpbliss, "E_max_ENS_pyscf_lpbliss" => E_max_ENS_pyscf_lpbliss,
+                        "delta_E_div_2_FS_pyscf_orig" => delta_E_div_2_FS_pyscf_orig, "delta_E_div_2_ENS_pyscf_orig" => delta_E_div_2_ENS_pyscf_orig,
+                        "delta_E_div_2_FS_pyscf_lpbliss" => delta_E_div_2_FS_pyscf_lpbliss, "delta_E_div_2_ENS_pyscf_lpbliss" => delta_E_div_2_ENS_pyscf_lpbliss)
 
 
     # Remove temp file
@@ -463,7 +494,7 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
                                                                                         two_body_tensor=two_body_tensor_chemist, 
                                                                                         core_energy=nuc_rep_energy, 
                                                                                         initial_states=[],
-                                                                                        num_electrons_list=[], 
+                                                                                        num_electrons_list=num_electrons_list, 
                                                                                         steps=25,
                                                                                         multiprocessing=false,
                                                                                         spin_orbitals=false
@@ -487,10 +518,10 @@ function calc_lanczos_test_energies(; basis::String, geometry::String, spin::Int
     # E_min_lanczo_final_total = E_min_sdstate_lanczos_total + nuc_rep_energy
     println("E_max_lanczo_final_total: ", E_max_lanczo_final_total)
     println("E_min_lanczo_final_total: ", E_min_lanczo_final_total)
-
+    two_sz = spin
     bliss_results_dict = calc_bliss_and_lanczos(one_body_tensor,
                         pyconvert(Array{Float64,4},two_body_tensor), 
-                        nuc_rep_energy, num_electrons)
+                        nuc_rep_energy, num_electrons,two_sz)
 
     return (E_FCI_HF, 
         E_FCI_UHF, 
@@ -541,6 +572,29 @@ end
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
 
+    @test bliss_results_dict["E_min_orig"] <= bliss_results_dict["E_min_orig_subspace"]
+    @test bliss_results_dict["E_max_orig"] >= bliss_results_dict["E_max_orig_subspace"]
+    @test bliss_results_dict["E_min_bliss"] <= bliss_results_dict["E_min_bliss_subspace"]
+    @test bliss_results_dict["E_max_bliss"] >= bliss_results_dict["E_max_bliss_subspace"]
+
+    #Check BLISS results with pyscf is same as with lanczos
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_orig"],bliss_results_dict["E_min_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_orig"],bliss_results_dict["E_max_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_orig"],bliss_results_dict["E_min_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_orig"],bliss_results_dict["E_max_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+
+
 end
 
 
@@ -578,6 +632,29 @@ end
     @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
+
+    @test bliss_results_dict["E_min_orig"] <= bliss_results_dict["E_min_orig_subspace"]
+    @test bliss_results_dict["E_max_orig"] >= bliss_results_dict["E_max_orig_subspace"]
+    @test bliss_results_dict["E_min_bliss"] <= bliss_results_dict["E_min_bliss_subspace"]
+    @test bliss_results_dict["E_max_bliss"] >= bliss_results_dict["E_max_bliss_subspace"]
+
+    #Check BLISS results with pyscf is same as with lanczos
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_orig"],bliss_results_dict["E_min_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_orig"],bliss_results_dict["E_max_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_orig"],bliss_results_dict["E_min_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_orig"],bliss_results_dict["E_max_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+
 end
 
 @testset "lanczos_fci_h2neg_sto6g" begin
@@ -621,6 +698,29 @@ end
     @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
+
+    @test bliss_results_dict["E_min_orig"] <= bliss_results_dict["E_min_orig_subspace"]
+    @test bliss_results_dict["E_max_orig"] >= bliss_results_dict["E_max_orig_subspace"]
+    @test bliss_results_dict["E_min_bliss"] <= bliss_results_dict["E_min_bliss_subspace"]
+    @test bliss_results_dict["E_max_bliss"] >= bliss_results_dict["E_max_bliss_subspace"]
+
+    #Check BLISS results with pyscf is same as with lanczos
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_orig"],bliss_results_dict["E_min_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_orig"],bliss_results_dict["E_max_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_orig"],bliss_results_dict["E_min_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_orig"],bliss_results_dict["E_max_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+
 end
 
 # @testset "lanczos_fci_h2_cc-pVDZ" begin
@@ -716,6 +816,29 @@ end
     @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
+
+    @test bliss_results_dict["E_min_orig"] <= bliss_results_dict["E_min_orig_subspace"]
+    @test bliss_results_dict["E_max_orig"] >= bliss_results_dict["E_max_orig_subspace"]
+    @test bliss_results_dict["E_min_bliss"] <= bliss_results_dict["E_min_bliss_subspace"]
+    @test bliss_results_dict["E_max_bliss"] >= bliss_results_dict["E_max_bliss_subspace"]
+
+    #Check BLISS results with pyscf is same as with lanczos
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_orig"],bliss_results_dict["E_min_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_orig"],bliss_results_dict["E_max_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_orig"],bliss_results_dict["E_min_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_orig"],bliss_results_dict["E_max_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+
 end
 
 # @testset "lanczos_fci_lih_cc-pVDZ" begin
@@ -739,6 +862,11 @@ end
 # end
 
 @testset "lanczos_fci_lih" begin
+    # 7 electrons and 2Sz = 1,3 seem to be missed/incorrect by lanczos range, or pyscf fci is incorrect.
+    # 7 electrons not missed as num electrons is based on num of spin orbitals
+    # But, it seems like not all spin sectors are included in the lanczos calculation
+    # Try lanczos with 7 electrons? Also try passing in states that include other spin sectors?
+    # Also try with 7 electrons but with the upaired electron at different locations?
     basis = "sto3g"
     bond_length = 1.0
     geometry = "H 0 0 0; Li 0 0 $bond_length"
@@ -772,6 +900,29 @@ end
     @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
+
+    @test bliss_results_dict["E_min_orig"] <= bliss_results_dict["E_min_orig_subspace"]
+    @test bliss_results_dict["E_max_orig"] >= bliss_results_dict["E_max_orig_subspace"]
+    @test bliss_results_dict["E_min_bliss"] <= bliss_results_dict["E_min_bliss_subspace"]
+    @test bliss_results_dict["E_max_bliss"] >= bliss_results_dict["E_max_bliss_subspace"]
+
+    #Check BLISS results with pyscf is same as with lanczos
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_orig"],bliss_results_dict["E_min_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_orig"],bliss_results_dict["E_max_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_orig"],bliss_results_dict["E_min_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_orig"],bliss_results_dict["E_max_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+
 
 
 end
@@ -810,6 +961,29 @@ end
     @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
+
+    @test bliss_results_dict["E_min_orig"] <= bliss_results_dict["E_min_orig_subspace"]
+    @test bliss_results_dict["E_max_orig"] >= bliss_results_dict["E_max_orig_subspace"]
+    @test bliss_results_dict["E_min_bliss"] <= bliss_results_dict["E_min_bliss_subspace"]
+    @test bliss_results_dict["E_max_bliss"] >= bliss_results_dict["E_max_bliss_subspace"]
+
+    #Check BLISS results with pyscf is same as with lanczos
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_orig"],bliss_results_dict["E_min_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_orig"],bliss_results_dict["E_max_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_orig"],bliss_results_dict["E_min_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_orig"],bliss_results_dict["E_max_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+
 
 
 end
@@ -852,4 +1026,27 @@ end
     @test bliss_results_dict["delta_E_div_2_bliss"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_orig"]
     @test bliss_results_dict["delta_E_div_2_orig_subspace"] <= bliss_results_dict["delta_E_div_2_bliss"]
+
+    @test bliss_results_dict["E_min_orig"] <= bliss_results_dict["E_min_orig_subspace"]
+    @test bliss_results_dict["E_max_orig"] >= bliss_results_dict["E_max_orig_subspace"]
+    @test bliss_results_dict["E_min_bliss"] <= bliss_results_dict["E_min_bliss_subspace"]
+    @test bliss_results_dict["E_max_bliss"] >= bliss_results_dict["E_max_bliss_subspace"]
+
+    #Check BLISS results with pyscf is same as with lanczos
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_orig"],bliss_results_dict["E_min_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_orig"],bliss_results_dict["E_max_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_orig"],bliss_results_dict["E_min_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_orig"],bliss_results_dict["E_max_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["E_min_FS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_FS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_min_ENS_pyscf_lpbliss"],bliss_results_dict["E_min_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["E_max_ENS_pyscf_lpbliss"],bliss_results_dict["E_max_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_orig"],bliss_results_dict["delta_E_div_2_orig_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_FS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+    @test isapprox(bliss_results_dict["delta_E_div_2_ENS_pyscf_lpbliss"],bliss_results_dict["delta_E_div_2_bliss_subspace"], atol=atol_bliss_test, rtol=rtol_bliss_test)
+
+
 end 

@@ -43,7 +43,7 @@ module QuantumMAMBO
 
 	include(UTILS_dir * "chem_benchmark.jl")
 	include(UTILS_dir * "lanczos.jl")
-	
+	include(UTILS_dir * "deltaE_pyscf.jl") 
 
 	if !(@isdefined SAVING_LOADED) && SAVING #only include saving file one time if saving option is on
 		include(UTILS_dir * "saving.jl")
