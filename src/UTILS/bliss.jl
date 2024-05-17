@@ -777,8 +777,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	 	@constraint(L1_OPT, low_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat - obt .<= 0)
 		@constraint(L1_OPT, high_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat + obt .>= 0)
 		
-	 	#2-body αβ/βα 1-norm
-	 	λ2 = zeros(ν2_len)
+	 	#=λ2 = zeros(ν2_len)
 	    idx = 0
 	    for i in 1:F.N
 	    	for j in 1:F.N
@@ -829,9 +828,37 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    end
 	    
 	    @constraint(L1_OPT, low_2, λ2 - τ_21*t[1] - 0.5*T2*omat - tbt1 .<= 0)
-	    @constraint(L1_OPT, high_2, λ2 - τ_21*t[1] - 0.5*T2*omat + tbt1 .>= 0)
+	    @constraint(L1_OPT, high_2, λ2 - τ_21*t[1] - 0.5*T2*omat + tbt1 .>= 0)=#
 	    
-	    T_dict = zeros(Int64,F.N,F.N)
+	    #2-body αβ/βα 1-norm
+	    
+	    idx=0
+	    for i in 1:F.N
+	    	for j in 1:F.N
+	    		for k in 1:F.N
+	    			for l in 1:F.N
+	    				idx+=1
+	    				if i==j && k!=l
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]-0.5*omat[F.N*(k-1)+l]-tbt1[idx]<=0)
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]-0.5*omat[F.N*(k-1)+l]+tbt1[idx]>=0)
+	    				elseif i!=j && k==l
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]-0.5*omat[F.N*(i-1)+j]-tbt1[idx]<=0)
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]-0.5*omat[F.N*(i-1)+j]+tbt1[idx]>=0)
+	    				elseif i==j && k==l
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]-0.5*omat[F.N*(i-1)+j]-0.5*omat[F.N*(k-1)+l]-0.5*t[1]-tbt1[idx]<=0)
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]-0.5*omat[F.N*(i-1)+j]-0.5*omat[F.N*(k-1)+l]-0.5*t[1]+tbt1[idx]>=0)
+	    				else
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]-tbt1[idx]<=0)
+	    					@constraint(L1_OPT, 0.5*F.mbts[3][i,j,k,l]+tbt1[idx]>=0)
+	    				end
+	
+	 
+	    			end
+	    		end
+	    	end
+	    end
+	    
+	    #=T_dict = zeros(Int64,F.N,F.N)
 	    idx = 0
 	    for i in 1:F.N
 	    	for j in 1:F.N
@@ -839,7 +866,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    		T_dict[i,j] = idx
 	    	end
 	    end
-	    #2-body αα/ββ 1-norm
+	   
 	    λ3 = zeros(ν3_len)
 	    idx = 0
 	    for i in 1:F.N
@@ -906,7 +933,41 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    end
 	   
 	    @constraint(L1_OPT, low_3, λ3 - τ_31*t[1] - T3*omat - tbt2 .<= 0)
-	    @constraint(L1_OPT, high_3, λ3 - τ_31*t[1] - T3*omat + tbt2 .>= 0)
+	    @constraint(L1_OPT, high_3, λ3 - τ_31*t[1] - T3*omat + tbt2 .>= 0)=#
+	    
+	     #2-body αα/ββ 1-norm
+	    
+	    idx = 0
+	    for i in 1:F.N
+	    	for j in 1:F.N
+	    		for k in 1:i-1
+	    			for l in 1:j-1
+	    				idx += 1
+	    				terms=0
+	    				if k==l
+	    					terms+=omat[F.N*(i-1)+j]
+	    				end
+	    				if i==j
+	    					terms+=omat[F.N*(k-1)+l]
+	    				end
+	    				if i==j && k==l
+	    					terms+=t[1]
+	    				end
+	    				if i==l && k==j
+	    					terms-=t[1]
+	    				end
+	    				if k==j
+	    					terms-=omat[F.N*(i-1)+l]
+	    				end
+	    				if i==l
+	    					terms-=omat[F.N*(k-1)+j]
+	    				end
+	    				@constraint(L1_OPT, F.mbts[3][i,j,k,l]-F.mbts[3][i,l,k,j]-terms-tbt2[idx]<=0)
+	    				@constraint(L1_OPT, F.mbts[3][i,j,k,l]-F.mbts[3][i,l,k,j]-terms+tbt2[idx]>=0)
+	    			end
+	    		end
+	    	end
+	    end
 	    
 	    JuMP.optimize!(L1_OPT)
 	    
