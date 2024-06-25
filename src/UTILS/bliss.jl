@@ -1461,59 +1461,7 @@ function LPBLISS_variant(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = S
 
 		
 
-	   #= obt_corr = ob_correction(F)
-	    #1-body 1-norm
-	    λ1 = zeros(ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		λ1[idx] = F.mbts[2][i,j] + obt_corr[i,j]
-	    	end
-	    end
-
-	    τ_11 = zeros(ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		if i == j
-	    			τ_11[idx] = 2*F.N
-	    		end
-	    	end
-	    end
-	    τ_12 = zeros(ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		if i == j
-	    			τ_12[idx] = 1
-	    		end
-	    	end
-	    end
-	    T1 = zeros(ν1_len,ν1_len)
-	    T1 += Diagonal((2η - 2F.N)*ones(ν1_len))
-	    idx1 = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx1 += 1
-	    		idx2 = 0
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx2 += 1
-	    				if i == j && k == l
-	 	   					T1[idx1,idx2] -= 2
-	 	   				end
-	 	   			end
-	 	   		end
-	 	   	end
-	 	end
-	 	
-	 	
-	 	@constraint(L1_OPT, low_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat - obt .<= 0)
-		@constraint(L1_OPT, high_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat + obt .>= 0)=#
-		
+	  
 		
 		idx=0
 		for i in 1:F.N
