@@ -29,7 +29,7 @@ Pkg.activate("./")
 Pkg.instantiate()
 
 
-using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, quadratic_bliss, bliss_linprog, quadratic_bliss_optimizer,F_OP_converter,F_OP_compress,PAULI_L1, PySCF_type,closed_shell, ROHF, Charge, Spin
+using QuantumMAMBO: DATAFOLDER, SAVELOAD_HAM, RUN_L1, symmetry_treatment, INTERACTION, bliss_optimizer, quadratic_bliss, bliss_linprog, quadratic_bliss_optimizer,F_OP_converter,F_OP_compress,PAULI_L1, PySCF_type,closed_shell, ROHF, Charge, Spin, LPBLISS_variant
 
 
 ###### SAVELOAD ROUTINES FOR MOLECULAR HAMILTONIAN #######
