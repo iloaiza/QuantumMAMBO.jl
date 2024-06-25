@@ -75,7 +75,7 @@ if BLISS
 		
 	else
 		H_bliss,_=bliss_linprog(H, η,SAVENAME=FILENAME*"_BLISS.h5")
-		
+		#H_bliss,_=LPBLISS_variant(H, η,SAVENAME=FILENAME*"_BLISS.h5")
 		
 	end
 	
