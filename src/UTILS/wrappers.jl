@@ -493,7 +493,11 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@time DF_FRAGS = DF_decomposition(H, verbose=verbose)
 		println("Finished DF decomposition for 2-body term using $(length(DF_FRAGS)) fragments")
 		@time λ2_DF = sum(L1.(DF_FRAGS, count=COUNT))
-		@show λDF = λ1 + λ2_DF
+		if COUNT==true
+			@show λDF = λ1 + λ2_DF[1]
+		else
+			@show λDF = λ1 + λ2_DF
+		end
 		push!(METHODS, "DF")
 		push!(Λs, λDF)
 		if DO_TROTTER
@@ -522,7 +526,11 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	if DO_MHC
 		println("\nMHC:")
 		@time λ2_MHC = split_schmidt(H.mbts[3], count=COUNT, tol=1e-6)
-		@show λMTD = λ1 + λ2_MHC
+		if COUNT==true
+			@show λMTD = λ1 + λ2_MHC[1]
+		else
+			@show λMTD = λ1 + λ2_MHC
+		end
 		push!(METHODS, "MTD-1^4")
 		push!(Λs, λMTD)
 	end
@@ -543,8 +551,10 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		λ2_CP4_GREEDY = 4*sum([abs(frag.coeff) for frag in CP4_GREEDY_FRAGS])
 		if COUNT == true
 			λ2_CP4_GREEDY = [λ2_CP4_GREEDY, length(CP4_GREEDY_FRAGS)]
+			@show λ1 + λ2_CP4_GREEDY[1]
+		else
+			@show λ1 + λ2_CP4_GREEDY
 		end
-		@show λ1 + λ2_CP4_GREEDY
 	end
 
 	if DO_THC
