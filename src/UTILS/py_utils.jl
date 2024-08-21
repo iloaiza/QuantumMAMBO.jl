@@ -6,6 +6,7 @@ np = pyimport("numpy")
 scipy = pyimport("scipy")
 sympy = pyimport("sympy")
 of = pyimport("openfermion")
+of_thc = pyimport("openfermion.resource_estimates.thc")
 
 UTILS_DIR = @__DIR__
 sys = pyimport("sys")
@@ -13,6 +14,7 @@ sys.path.append(UTILS_DIR)
 ham = pyimport("ham_utils")
 fermionic = pyimport("ferm_utils")
 qub = pyimport("py_qubits")
+thc_utils = pyimport("thc_utils")
 
 of_simplify(OP) = of.reverse_jordan_wigner(of.jordan_wigner(OP))
 
@@ -170,7 +172,7 @@ function OF_qubit_op_range(op_qubit, n_qubit=pyconvert(Int64,of.count_qubits(op_
 	op_py_sparse_mat = of.qubit_operator_sparse(op_qubit)
 	sparse_op = py_sparse_import(op_py_sparse_mat, imag_tol=imag_tol)
 
-	if debug
+	if debuglam
 		E, _ = eigen(collect(sparse_op))
 		E = real.(E)
 	
@@ -189,4 +191,30 @@ function OF_to_F_OP(H, spin_orb=false)
 	obt = pyconvert(Array{Float64}, obt_py)
 	tbt = pyconvert(Array{Float64}, tbt_py)
 	return F_OP(([h0], obt, tbt), spin_orb)
+end
+
+
+function THC_cost(N, λ, M::Int64, iter::Int64, steps::Int64=20000, ε=0.001, α::Int64=10, β::Int64=16)
+	#= 
+	
+	 N= number of spin-orbitals
+	 λ = 1-norm of the THC decomposition
+	 ε = allowed error in phase estimation
+	 α = number of bits used for representing the coefficients
+	 β = number of bits used for representing the rotation angles
+	 M = dimension of each iteration of the THC decomposition
+	 iter = number of iterations in the decomposition 
+	 steps= an approximate number of steps to choose the precision of single qubit rotations in preparation of the equal superpositn state
+	=#
+	
+	M=iter*M
+	
+	cost= of_thc.compute_cost(N, λ, ε, α, β, M, steps)
+	steps = pyconvert(Int64, cost[0])
+	cost=of_thc.compute_cost(N, λ, ε, α, β, M, steps)
+	#cost= of_thc.compute_cost(N, λ, ε, α, β, M, steps)
+	step_count=pyconvert(Int64, cost[0])
+	toffoli_count=pyconvert(Float64, cost[1])
+	ancilla_count=pyconvert(Int64, cost[2])
+	return step_count, toffoli_count, ancilla_count
 end
