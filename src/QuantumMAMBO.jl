@@ -1,5 +1,5 @@
 module QuantumMAMBO
-	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse
+	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse, LeastSquaresOptim
 
 	src_dir = @__DIR__
 	UTILS_dir = src_dir * "/UTILS/"
@@ -29,6 +29,10 @@ module QuantumMAMBO
 	include(UTILS_dir * "trotter.jl")
 	include(UTILS_dir * "projectors.jl")
 	include(UTILS_dir * "schmidt.jl")
+	include(UTILS_dir * "thc.jl")
+	include(UTILS_dir * "lanczos.jl")
+	include(UTILS_dir * "estimates.jl")
+	include(UTILS_dir * "cp4.jl")
 
 	if @isdefined myid
 		include(UTILS_dir * "parallel.jl")

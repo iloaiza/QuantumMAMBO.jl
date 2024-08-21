@@ -23,6 +23,13 @@ const SVD_tol = 1e-8 #cut-off for SVD coefficients
 const PAULI_TOL = 1e-8 #cut-off Pauli terms when building Q_OP qubit operators with magnitude smaller than this tolerance
 const MAT_DROP_TOL = 1e-8 #tolerance for cutting off elements in sparse matrix when converting operator to matrix
 const LCU_tol = 1e-6 #cut-off for counting unitaries with magnitude smaller than this tolerance
+const MPS_cutoff = 1e-5 #cut-off for SVD operations in MPS decomposition
+
+#Resource estimates hyperparameters
+const Givens_accuracy = 1e-4 #accuracy for circuit implementation of Givens rotations
+const coeff_accuracy = 1e-4 #accuracy for prep coefficient preparation circuits
+const rot_accuracy = 1e-4 #accuracy for implementing Rz rotations
+const num_br = 7 #number of qubits for phase gradient registers
 
 #Additional definitions
 const CONFIG_LOADED = true #flag that tracks config already being loaded, useful for redefining constants and being able to load build.jl
