@@ -10,6 +10,12 @@ function L1(F :: F_FRAG; debug = false, count = false)
 		return THC_L1(F, debug = debug, count = count)
 	elseif F.TECH == OBF()
 		return OBF_L1(F, debug = debug, count = count)
+	elseif F.TECH == CP4()
+		if count
+			return [abs(F.coeff),1]
+		else
+			return abs(F.coeff)
+		end
 	else
 		error("Trying to calculate LCU 1-norm decomposition for fermionic fragment with FRAGMENTATION_TECH=$(F.TECH), not implemented!")
 	end
@@ -262,6 +268,7 @@ end
 function one_body_L1(H :: F_OP; count=false)
 	#get one-body 1-norm after correction from 2-body term
 	obf = to_OBF(H.mbts[2] + ob_correction(H), H.spin_orb)
+	#obf = to_OBF(H.mbts[2], H.spin_orb)
 
 	return OBF_L1(obf, count=count)
 end
@@ -331,7 +338,7 @@ function PAULI_L1(F :: F_OP; count=false)
 		λ2 = 0
 	end
 
-
+	#@show λ2
 	return λ1+λ2
 end
 
