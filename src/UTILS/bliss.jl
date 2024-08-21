@@ -1,4 +1,7 @@
 #routines for finding fluid-body symmetry shifts
+
+using JuMP, Optim
+
 function bliss_sym_params_to_F_OP(ovec, t1, t2, η, N = Int((sqrt(8*length(ovec)+1) - 1)/2), spin_orb=false)
 	#builds S symmetry shift corresponding to S = s0+s1+s2
 	obt = zeros(N, N)
@@ -356,11 +359,11 @@ function quadratic_bliss_optimizer(F :: F_OP, η; verbose=true, SAVELOAD = SAVIN
 	if verbose
 		println("Starting 1-norm cost:")
 		@show cost(x0)
-		@time sol = optimize(cost,  x0, BFGS(), Optim.Options(show_trace=false, extended_trace=true, show_every=1, f_tol = 1e-3))
+		@time sol = Optim.optimize(cost,  x0, BFGS(), Optim.Options(show_trace=false, extended_trace=true, show_every=1, f_tol = 1e-3))
 		println("Final 1-norm cost:")
 		@show sol.minimum
 	else
-		sol = optimize(cost, x0, BFGS())
+		sol = Optim.optimize(cost, x0, BFGS())
 	end
 	
 	@show xsol = sol.minimizer
@@ -541,7 +544,7 @@ function hubbard_bliss_optimizer(F :: F_OP, η, sz, s2; verbose=true, SAVELOAD =
 	return F - S
 end
 
-function bliss_linprog(F :: F_OP, η; model="highs", verbose=false)
+function bliss_linprog(F :: F_OP, η; model="highs", verbose=true)
 	if F.spin_orb
 		error("BLISS not defined for spin-orb=true!")
 	end
@@ -760,7 +763,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=false)
     @constraint(L1_OPT, low_3, λ3 - τ_31*t[1] - T3*omat - tbt2 .<= 0)
     @constraint(L1_OPT, high_3, λ3 - τ_31*t[1] - T3*omat + tbt2 .>= 0)
     
-    optimize!(L1_OPT)
+    JuMP.optimize!(L1_OPT)
     
     t_opt = value.(t)
     o_opt = value.(omat)
