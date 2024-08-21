@@ -539,7 +539,7 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@show λ1 + λ2_THC
 		# =#
 		
-		step_size=40
+		step_size=8
 		@time _, λ2_THC, iterations= THC_tb_lsq(H, step_size)
 		@show λ_THC = λ1+λ2_THC
 		@show iterations
