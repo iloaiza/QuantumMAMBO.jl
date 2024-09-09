@@ -777,58 +777,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	 	@constraint(L1_OPT, low_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat - obt .<= 0)
 		@constraint(L1_OPT, high_1, λ1 - τ_11*t[1] - τ_12*t[2] + T1*omat + obt .>= 0)
 		
-	 	#=λ2 = zeros(ν2_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				λ2[idx] = 0.5 * F.mbts[3][i,j,k,l]
-	    			end
-	    		end
-	    	end
-	    end
-
-	    τ_21 = zeros(ν2_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				if i == j && k == l
-	    					τ_21[idx] = 0.5
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-
-	    T2 = zeros(ν2_len,ν1_len)
-	    idx = 0
-	    idx_ij = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx_ij += 1
-	    		idx_kl = 0
-	    		for k in 1:F.N
-	    			for l in 1:F.N
-	    				idx += 1
-	    				idx_kl += 1
-	    				if i == j
-	    					T2[idx,idx_kl] += 1
-	    				end
-	    				if k == l
-	    					T2[idx,idx_ij] += 1
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	    
-	    @constraint(L1_OPT, low_2, λ2 - τ_21*t[1] - 0.5*T2*omat - tbt1 .<= 0)
-	    @constraint(L1_OPT, high_2, λ2 - τ_21*t[1] - 0.5*T2*omat + tbt1 .>= 0)=#
+	 	
 	    
 	    #2-body αβ/βα 1-norm
 	    
@@ -858,82 +807,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    	end
 	    end
 	    
-	    #=T_dict = zeros(Int64,F.N,F.N)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		idx += 1
-	    		T_dict[i,j] = idx
-	    	end
-	    end
-	   
-	    λ3 = zeros(ν3_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in 1:j-1
-	    				idx += 1
-	    				λ3[idx] = F.mbts[3][i,j,k,l] - F.mbts[3][i,l,k,j]
-	    			end
-	    		end
-	    	end
-	    end
 	    
-	    τ_31 = zeros(ν3_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in 1:j-1
-	    				idx += 1
-	    				if i == j && k == l
-	    					τ_31[idx] += 1
-	    				end
-	    				if i == l && k == j
-	    					τ_31[idx] -= 1
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	    
-	    
-
-	    T3 = zeros(ν3_len,ν1_len)
-	    idx = 0
-	    for i in 1:F.N
-	    	for j in 1:F.N
-	    		for k in 1:i-1
-	    			for l in 1:j-1
-	    				idx += 1
-	    				
-	    				idx_ij = T_dict[i,j]
-	    				if k == l
-	    					T3[idx,idx_ij] += 1
-	    				end
-	    				
-	    				idx_kl = T_dict[k,l]
-	    				if i == j
-	    					T3[idx,idx_kl] += 1
-	    				end
-
-	    				idx_il = T_dict[i,l]
-	    				if k == j
-	    					T3[idx,idx_il] -= 1
-	    				end
-
-	    				idx_kj = T_dict[k,j]
-	    				if i == l
-	    					T3[idx,idx_kj] -= 1
-	    				end
-	    			end
-	    		end
-	    	end
-	    end
-	   
-	    @constraint(L1_OPT, low_3, λ3 - τ_31*t[1] - T3*omat - tbt2 .<= 0)
-	    @constraint(L1_OPT, high_3, λ3 - τ_31*t[1] - T3*omat + tbt2 .>= 0)=#
 	    
 	     #2-body αα/ββ 1-norm
 	    
