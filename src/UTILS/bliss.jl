@@ -673,7 +673,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
     
     println("The L1 cost of original Hamiltonian is: ",PAULI_L1(F))
     
-    if size(F.mbts[2],1)==size(F.mbts[3],1)
+    if size(F.mbts[2],1)==size(F.mbts[3],1)   #if Hamiltonian respects spin-symmetry
     	    if SAVELOAD
 		fid = h5open(SAVENAME, "cw")
 		if haskey(fid, "BLISS")
@@ -898,7 +898,7 @@ function bliss_linprog(F :: F_OP, η; model="highs", verbose=true,SAVELOAD = SAV
 	    
 	    println("The L1 cost of symmetry treated fermionic operator is: ",PAULI_L1(F_new))
 	    return F_new, s1+s2
-    else
+    else  #if Hamiltonian does not respect spin-symmetry.
     
     	   if SAVELOAD
 		fid = h5open(SAVENAME, "cw")
