@@ -5,10 +5,8 @@ numpy = ""
 sympy = ""
 
 [pip.deps]
-cirq = "==1.2"
-cirq-ft = "==1.2"
+cirq = ""
+cirq-ft = ""
 openfermion = ""
 openfermionpyscf = ""
-module_sdstate = "==0.1.1"
 TensorFox = ""
-tensorly = ""

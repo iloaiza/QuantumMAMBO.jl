@@ -181,6 +181,82 @@ function LOCALIZED_XYZ_HAM(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5",
 	return Hhf, Hfb, η
 end
 
+function LOCALIZED_XYZ_HAM_MF(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING; kwargs...)
+	if DO_SAVE && isfile(FILENAME*".h5")
+		fid = h5open(FILENAME*".h5", "cw")
+		if haskey(fid, "MOLECULAR_DATA")
+			println("Loading molecular data from $FILENAME.h5")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			h_const = read(MOL_DATA,"h_const")
+			obt_hf = read(MOL_DATA,"obt_hf")
+			tbt_hf = read(MOL_DATA,"tbt_hf")
+			η = read(MOL_DATA,"eta")
+			obt_fb = read(MOL_DATA,"obt_fb")
+			tbt_fb = read(MOL_DATA,"tbt_fb")
+			close(fid)
+			Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+			Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+		else
+			h_const, obt_hf, tbt_hf, obt_fb, tbt_fb, η, mf = ham.localized_ham_from_xyz(xyz_string, return_mf = true; kwargs...)
+			h_const = pyconvert(Float64, h_const)
+			obt_hf = pyconvert(Array{Float64}, obt_hf)
+			tbt_hf = pyconvert(Array{Float64}, tbt_hf)
+			obt_fb = pyconvert(Array{Float64}, obt_fb)
+			tbt_fb = pyconvert(Array{Float64}, tbt_fb)
+			η = pyconvert(Int64, η)
+			Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+			Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
+				close(fid)
+				oldfile(FILENAME*".h5")
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  Hhf.mbts[1]
+			MOL_DATA["obt_hf"] =  Hhf.mbts[2]
+			MOL_DATA["tbt_hf"] =  Hhf.mbts[3]
+			MOL_DATA["eta"] =  η
+			MOL_DATA["obt_fb"] =  Hfb.mbts[2]
+			MOL_DATA["tbt_fb"] =  Hfb.mbts[3]
+			close(fid)
+		end
+	else 
+		h_const, obt_hf, tbt_hf, obt_fb, tbt_fb, η, mf = ham.localized_ham_from_xyz(xyz_string, return_mf = true; kwargs...)
+		h_const = pyconvert(Float64, h_const)
+		obt_hf = pyconvert(Array{Float64}, obt_hf)
+		tbt_hf = pyconvert(Array{Float64}, tbt_hf)
+		obt_fb = pyconvert(Array{Float64}, obt_fb)
+		tbt_fb = pyconvert(Array{Float64}, tbt_fb)
+		η = pyconvert(Int64, η)
+		Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+		Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+		if DO_SAVE
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			fid = h5open(FILENAME*".h5", "cw")
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists."
+				close(fid)
+				oldfile(FILENAME)
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  Hhf.mbts[1]
+			MOL_DATA["obt_hf"] =  Hhf.mbts[2]
+			MOL_DATA["tbt_hf"] =  Hhf.mbts[3]
+			MOL_DATA["eta"] =  η
+			MOL_DATA["obt_fb"] =  Hfb.mbts[2]
+			MOL_DATA["tbt_fb"] =  Hfb.mbts[3]
+			close(fid)
+		end
+	end
+
+	return Hhf, Hfb, η, mf
+end
+
 function L1_ROUTINE(H, name; prefix="", dE = true, dE_tol = 1e-1)
 	#dE: whether full Hamiltonian is diagonalized for minimum 1-norm
 	#runs L1 routine for H, returns array of 1-norms Λ and unitary count Us as:
@@ -297,7 +373,7 @@ function RUN(H; kwargs...)
 end
 
 function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_OO = true,
-			 DO_SQRT = false, max_frags = 10000, verbose=true, COUNT=false, DO_LANCZOS=DO_LANCZOS, DO_TROTTER = false,
+			 DO_SQRT = false, max_frags = 10000, verbose=true, COUNT=false, DO_TROTTER = false,
 			 DO_MHC = true, DO_MTD_CP4 = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
 			 DO_FC = true, SYM_RED = true, DO_THC = false, FOCK_BOUND=true)
 	# Obtain 1-norms for different LCU methods. COUNT=true also counts number of unitaries in decomposition
@@ -310,7 +386,7 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	# SQRT: obtain square-root lower bound for non-optimal factorization methods (i.e. CSA)
 	# TROTTER: obtain α upper-bound for Trotter error
 	# MHC: MTD-1ˆ4 with SVD-based MPS
-	# MTD_CP4: MTD-1ˆ4
+	# CP4: MTD-1ˆ4
 	# η: number of electrons in the wavefunction, necessary for symmetry-projected Trotter bounds
 	# FC: fully-commuting grouing
 	# SYM_RED: calculate Trotter norms in symmetric subspace, necessary for Trotter bounds
@@ -347,30 +423,6 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@show λ_fock
 		push!(METHODS, "Fock")
 		push!(Λs, λ_fock)
-	end
-	
-	if DO_LANCZOS
-		println("Estimating ΔE/2 using Lanczos iteration.")
-		
-		
-		#=if !(spin_symmetry==false && rohf==false && (bliss==true || compress==false))
-			H_spin=F_OP_space_to_spin(H)
-			#tensors=(H_spin.mbts[2],H_spin.mbts[3])
-		else
-			H_spin=H
-			#tensors=(H.mbts[2],H.mbts[3])
-		end=#
-		H_spin=F_OP_space_to_spin(H)
-			
-		
-		E_max_total,E_min_total = lanczos_total_range(one_body_tensor=H_spin.mbts[2],two_body_tensor=H_spin.mbts[3],core_energy=H_spin.mbts[1][1], steps=5)
-    		E_max, E_min= lanczos_range(one_body_tensor=H_spin.mbts[2],two_body_tensor=H_spin.mbts[3],core_energy=H_spin.mbts[1][1], steps=5, num_electrons=η)
-    		
-    		
-		delta_E_total=E_max_total - E_min_total
-		delta_E=E_max-E_min
-		println("Total spectral gap/2: ", delta_E_total/2)
-		println("Spectral gap/2 for ",η," electrons: ", delta_E/2)
 	end
 
 	if SYM_RED
@@ -434,7 +486,6 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	println("\n\nCalculating 1-norms...")
 	println("1-body:")
 	@time λ1 = one_body_L1(H, count=COUNT)
-	#@time λ1 = SQRT_L1(OB_extract(H,γ4_contribution=true), count=COUNT)
 	@show λ1
 
 	if DO_TROTTER
@@ -509,9 +560,9 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		push!(Λs, λMTD)
 	end
 
-	if DO_MTD_CP4
+	if DO_CP4
 		#=
-		println("\nMTD_CP4:")
+		println("\nCP4:")
 		@time CP4_FRAGS = CP4_decomposition(H, max_frags, verbose=verbose, SAVELOAD = true, SAVENAME = name)
 		λ2_CP4_TSR = 4*sum([abs(frag.coeff) for frag in CP4_FRAGS])
 		if COUNT == true
@@ -520,8 +571,8 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 		@show λ1 + λ2_CP4_TSR
 		# =#
 
-		println("\nGREEEDY_MTD_CP4:")
-		@time CP4_GREEDY_FRAGS = MTD_CP4_greedy_decomposition(H, max_frags, verbose=false, SAVENAME = name, SAVELOAD=true)
+		println("\nGREEEDY_CP4:")
+		@time CP4_GREEDY_FRAGS = CP4_greedy_decomposition(H, max_frags, verbose=verbose, SAVENAME = name, SAVELOAD=true)
 		λ2_CP4_GREEDY = 4*sum([abs(frag.coeff) for frag in CP4_GREEDY_FRAGS])
 		if COUNT == true
 			λ2_CP4_GREEDY = [λ2_CP4_GREEDY, length(CP4_GREEDY_FRAGS)]
@@ -532,29 +583,12 @@ function RUN_L1(H; DO_CSA = true, DO_DF = true, DO_ΔE = true, DO_AC = true, DO_
 	end
 
 	if DO_THC
-		println("\n\nTHC routine...")
-		#@warn "THC not implemented!"
+		println("THC routine...")
+		@warn "THC not implemented!"
 		#=
 		@time λ2_THC = THC_full(H)
 		@show λ1 + λ2_THC
 		# =#
-		
-		step_size=8
-		@time _, λ2_THC, iterations= THC_tb_lsq(H, step_size)
-		@show λ_THC = λ1+λ2_THC
-		@show iterations
-		@show λ2_THC
-		
-		#Toffoli_cost
-		#λ2_THC=5.61
-		#iterations=3
-		
-		step_cost, toffoli_cost, ancilla_cost= THC_cost(2*H.N, λ2_THC, step_size, iterations)
-		@show step_cost, toffoli_cost, ancilla_cost 
-		
-		push!(METHODS, "THC")
-		push!(Λs, λ_THC)
-		
 	end
 
 	if DO_FC
@@ -620,7 +654,7 @@ end
 
 function HUBBARD_RUN(H; DO_CSA = false, DO_DF = true, DO_ΔE = false, DO_AC = true, DO_OO = true,
 			 DO_SQRT = false, max_frags = 1000, verbose=true, COUNT=false, DO_TROTTER = false,
-			 DO_MHC = true, DO_MTD_CP4 = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
+			 DO_MHC = true, DO_CP4 = true, name = SAVING, SAVELOAD = SAVING, LATEX_PRINT = true, η=0,
 			 DO_FC = true, SYM_RED = true)
 	# Obtain 1-norms for different LCU methods. COUNT=true also counts number of unitaries in decomposition
 	# CSA: Cartan sub-algebra decomposition
@@ -740,8 +774,8 @@ function HUBBARD_RUN(H; DO_CSA = false, DO_DF = true, DO_ΔE = false, DO_AC = tr
 		@show λ1 + λ2_MHC
 	end
 
-	if DO_MTD_CP4
-		println("\nMTD_CP4:")
+	if DO_CP4
+		println("\nCP4:")
 		@time CP4_FRAGS = CP4_decomposition(H, max_frags)
 		λ2_CP4_TSR = sum([abs(frag.coeff) for frag in CP4_FRAGS])
 		if COUNT == true
@@ -749,8 +783,8 @@ function HUBBARD_RUN(H; DO_CSA = false, DO_DF = true, DO_ΔE = false, DO_AC = tr
 		end
 		@show λ1 + λ2_CP4_TSR
 
-		println("\nGREEEDY_MTD_CP4:")
-		@time CP4_GREEDY_FRAGS = MTD_CP4_greedy_decomposition(H, max_frags, verbose=verbose, SAVENAME = name)
+		println("\nGREEEDY_CP4:")
+		@time CP4_GREEDY_FRAGS = CP4_greedy_decomposition(H, max_frags, verbose=verbose, SAVENAME = name)
 		λ2_CP4_GREEDY = sum([abs(frag.coeff) for frag in CP4_FRAGS])
 		if COUNT == true
 			λ2_CP4_GREEDY = [λ2_CP4_GREEDY, length(CP4_GREEDY_FRAGS)]

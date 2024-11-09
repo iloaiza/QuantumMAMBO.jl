@@ -5,9 +5,11 @@ basis="sto3g"
 
 import Pkg
 
-Pkg.activate("./") # uncomment for using local QuantumMAMBO installation
 
-Pkg.instantiate()
+
+Pkg.activate("./")
+
+Pkg.instantiate() # uncomment for using local QuantumMAMBO installation
 import QuantumMAMBO as QM
 
 
@@ -16,18 +18,18 @@ trunc = 1e-5 #value beneath which considers a coefficient 0
 H_CHAINS = ["h$i" for i in 4:30]
 
 ###### SAVELOAD ROUTINES FOR MOLECULAR HAMILTONIAN #######
-global IS_CHAIN = false
+#=global IS_CHAIN = false
 if mol_name == "h2"
-	r = 0.741
+	r = 1
 	xyz = ["H 0.0 0.0 0.0", "H 0.0 0.0 $r"]
 elseif mol_name == "lih"
-	r = 1.595
+	r = 1
 	xyz = ["H 0.0 0.0 0.0", "Li 0.0 0.0 $r"]
 elseif mol_name == "beh2"
-	r = 1.326
+	r = 1
 	xyz = ["H 0.0 0.0 0.0", "Be 0.0 0.0 $r", "H 0.0 0.0 $(2*r)"]
 elseif mol_name == "h2o"
-	r = 0.958
+	r = 1
 	h2o_angle = 107.6 / 2
     h2o_angle = deg2rad(h2o_angle)
     xDistance = r*sin(h2o_angle)
@@ -51,7 +53,7 @@ elseif mol_name in H_CHAINS
 	end
 else
 	error("Not supported mol_name = $mol_name input!")
-end
+end=#
 
 function sparsify!(X)
 	for (i,x) in enumerate(X)
@@ -106,14 +108,14 @@ end
 
 file_name = QM.DATAFOLDER * mol_name
 #Hhf, Hrot, η = QM.LOCALIZED_XYZ_HAM(xyz, file_name, true, basis = basis)
-
-Hhf, η = QM.SAVELOAD_HAM(mol_name)
-Hrot = QM.ORBITAL_OPTIMIZATION(Hhf; verbose=true, SAVELOAD=true, SAVENAME=file_name * ".h5")
-
-if IS_CHAIN == false
+Hhf,η=QM.SAVELOAD_HAM(mol_name, QM.DATAFOLDER * mol_name)
+@show QM.PAULI_L1(Hhf)
+Hrot=Hhf
+#=if IS_CHAIN == false
 	Hrot = QM.ORBITAL_OPTIMIZATION(Hhf; verbose=true, SAVELOAD=true, SAVENAME=file_name * ".h5")
-end
+end=#
+#Hrot=Hhf
 
 
-DO_ESTIMATES(Hhf, Hrot, ["sparse", "AC", "CP4", "MPS", "DF", "DF_openfermion"])
-#DO_ESTIMATES(Hhf, Hrot, ["DF", "DF_openfermion"])
+#DO_ESTIMATES(Hhf, Hrot)
+DO_ESTIMATES(Hhf, Hrot, ["CP4"], do_orbs=false)

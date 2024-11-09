@@ -293,7 +293,6 @@ function THC_iterative_decomposition(H :: F_OP, α_max, decomp_tol = ϵ)
 	return THC_x_to_F_FRAGS(sol.minimizer, i-1, H.N)
 end
 
-
 function DF_decomposition(H :: F_OP; tol=SVD_tol, tiny=SVD_tiny, verbose=false, debug=false, do_Givens=DF_GIVENS)
 	#do double-factorization
 	#do_Givens will try to transform each orbital rotation into Givens rotations, false returns one-body rotation matrices directly
@@ -435,11 +434,107 @@ function DF_based_greedy(F :: F_OP)
 	return F
 end
 
-
-function MTD_CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
+function SYM4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
 
 	function cost(x)
-		Fx = MTD_CP4_x_to_F_FRAG(x, F.N, F.spin_orb)
+		Fx = SYM4_x_to_F_FRAG(x, F.N, F.spin_orb)
+
+		return L2_partial_cost(F, to_OP(Fx))
+	end
+
+	if x0 == false
+		x0 = zeros(F.N)
+		x0[1:end-1] .= 2π*rand(F.N - 1)
+	end
+
+	if print == false
+		return optimize(cost, x0, BFGS())
+	else
+		return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=false))
+	end
+end
+
+function SYM4_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"SYM4.h5")
+	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
+	F_rem.filled[1:2] .= false #only optimize 2-body tensor
+
+	tot_L = H.N
+	if SAVELOAD
+		X = zeros(tot_L, α_max)
+	end
+
+	Farr = F_FRAG[]
+	α_curr = 0
+	α_ini = 1
+
+	if SAVELOAD
+		fid = h5open(SAVENAME, "cw")
+		if "SYM4" in keys(fid)
+			SYM4_group = fid["SYM4"]
+			x = read(SYM4_group, "x")
+			x_len, α_curr = size(x)
+			println("Found saved x under filename $SAVENAME for SYM4 decomposition, loaded $α_curr fragments...")
+			if x_len != tot_L
+				error("Trying to load from $SAVENAME, saved x has wrong dimensions for SYM4 parameters of H!")
+			end
+			α_ini = α_curr + 1
+			for i in 1:α_curr
+				frag = SYM4_x_to_F_FRAG(x[:,i], H.N, H.spin_orb)
+				push!(Farr, frag)
+				F_rem = F_rem - to_OP(frag)
+			end
+			X[:,1:α_curr] = x
+		else
+			create_group(fid, "SYM4")
+			SYM4_group = fid["SYM4"]
+		end
+	end
+
+	curr_cost = L2_partial_cost(F_rem)
+	if verbose
+		println("Initial L2 cost is $curr_cost")
+	end
+
+	while curr_cost > decomp_tol && α_curr < α_max
+		α_curr += 1
+		if verbose
+			@time sol = SYM4_greedy_step(F_rem)
+			println("Current L2 cost after $α_curr fragments is $(sol.minimum)")
+		else
+			sol = SYM4_greedy_step(F_rem)
+		end
+		frag = SYM4_x_to_F_FRAG(sol.minimizer, H.N, H.spin_orb)
+		push!(Farr, frag)
+		F_rem = F_rem - to_OP(frag)
+		curr_cost = sol.minimum
+		if SAVELOAD
+			X[:,α_curr] = sol.minimizer
+			if haskey(SYM4_group, "x")
+				delete_object(SYM4_group, "x") 
+			end
+			SYM4_group["x"] = X[:, 1:α_curr]
+		end
+	end
+
+	if verbose
+		println("Finished SYM4 decomposition, total number of fragments is $α_curr, remainder L2-norm is $curr_cost")
+	end
+
+	if curr_cost > decomp_tol
+		@warn "SYM4 decomposition did not converge, remaining L2-norm is $curr_cost"
+	end
+
+	if SAVELOAD
+		close(fid)
+	end
+
+	return Farr
+end
+
+function CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
+
+	function cost(x)
+		Fx = CP4_x_to_F_FRAG(x, F.N, F.spin_orb)
 
 		return L2_partial_cost(F, to_OP(Fx))
 	end
@@ -456,7 +551,7 @@ function MTD_CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
 	end
 end
 
-function MTD_CP4_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"MTD_CP4.h5")
+function CP4_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=true, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CP4.h5")
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1:2] .= false #only optimize 2-body tensor
 
@@ -471,24 +566,24 @@ function MTD_CP4_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbos
 
 	if SAVELOAD
 		fid = h5open(SAVENAME, "cw")
-		if "MTD_CP4" in keys(fid)
-			MTD_CP4_group = fid["MTD_CP4"]
-			x = read(MTD_CP4_group, "x")
+		if "CP4" in keys(fid)
+			CP4_group = fid["CP4"]
+			x = read(CP4_group, "x")
 			x_len, α_curr = size(x)
-			println("Found saved x under filename $SAVENAME for MTD_CP4 decomposition, loaded $α_curr fragments...")
+			println("Found saved x under filename $SAVENAME for CP4 decomposition, loaded $α_curr fragments...")
 			if x_len != tot_L
-				error("Trying to load from $SAVENAME, saved x has wrong dimensions for MTD_CP4 parameters of H!")
+				error("Trying to load from $SAVENAME, saved x has wrong dimensions for CP4 parameters of H!")
 			end
 			α_ini = α_curr + 1
 			for i in 1:α_curr
-				frag = MTD_CP4_x_to_F_FRAG(x[:,i], H.N, H.spin_orb)
+				frag = CP4_x_to_F_FRAG(x[:,i], H.N, H.spin_orb)
 				push!(Farr, frag)
 				F_rem = F_rem - to_OP(frag)
 			end
 			X[:,1:α_curr] = x
 		else
-			create_group(fid, "MTD_CP4")
-			MTD_CP4_group = fid["MTD_CP4"]
+			create_group(fid, "CP4")
+			CP4_group = fid["CP4"]
 		end
 	end
 
@@ -501,30 +596,30 @@ function MTD_CP4_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbos
 		α_curr += 1
 		#x = [λ..., θ...] for cartan(λ) and U(θ)
 		if verbose
-			@time sol = MTD_CP4_greedy_step(F_rem)
+			@time sol = CP4_greedy_step(F_rem)
 			println("Current L2 cost after $α_curr fragments is $(sol.minimum)")
 		else
-			sol = MTD_CP4_greedy_step(F_rem)
+			sol = CP4_greedy_step(F_rem)
 		end
-		frag = MTD_CP4_x_to_F_FRAG(sol.minimizer, H.N, H.spin_orb)
+		frag = CP4_x_to_F_FRAG(sol.minimizer, H.N, H.spin_orb)
 		push!(Farr, frag)
 		F_rem = F_rem - to_OP(frag)
 		curr_cost = sol.minimum
 		if SAVELOAD
 			X[:,α_curr] = sol.minimizer
-			if haskey(MTD_CP4_group, "x")
-				delete_object(MTD_CP4_group, "x") 
+			if haskey(CP4_group, "x")
+				delete_object(CP4_group, "x") 
 			end
-			MTD_CP4_group["x"] = X[:, 1:α_curr]
+			CP4_group["x"] = X[:, 1:α_curr]
 		end
 	end
 
 	if verbose
-		println("Finished MTD_CP4 decomposition, total number of fragments is $α_curr, remainder L2-norm is $curr_cost")
+		println("Finished CP4 decomposition, total number of fragments is $α_curr, remainder L2-norm is $curr_cost")
 	end
 
 	if curr_cost > decomp_tol
-		@warn "MTD_CP4 decomposition did not converge, remaining L2-norm is $curr_cost"
+		@warn "CP4 decomposition did not converge, remaining L2-norm is $curr_cost"
 	end
 
 	if SAVELOAD

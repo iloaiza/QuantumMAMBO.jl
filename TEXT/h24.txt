@@ -1,0 +1,15 @@
+Loading molecular data from /home/nacho/MEGAsync/Codes/QuantumMAMBO.jl/src/UTILS/../../SAVED/h24.h5
+H.N = 24
+Starting resource estimates for method list ["DF", "DF_openfermion"]
+Starting DF routine...
+(bN, kN, lN) = (5.0, 4.0, 1.0)
+(bN, kN, lN) = (7.0, 6.0, 1.0)
+(T, Q, R) = (70858.0, 170.0, 556.0)
+estimate = QM.quantum_estimate(H, routine) = ((98898, 171), 91.34389417450596)
+Starting DF_openfermion routine...
+L = 69
+Lxi = 1120
+givens_beta = 14
+μ = 8
+(T, Q, R) = (38507, 818, 0)
+estimate = QM.quantum_estimate(H, routine) = ((38507, 819), 91.34389417450596)
