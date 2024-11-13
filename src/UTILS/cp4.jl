@@ -217,6 +217,6 @@ function CP4_decomposition(tsr, rank_max; tol=ϵ, verbose=false, ini_rank = 1, r
 	return FRAGS
 end
 
-function CP4_decomposition(F :: F_OP, rank_max; tol=ϵ, verbose=false, rank_hop = 1, SAVELOAD=false, SAVENAME=DATAFOLDER*"CP4.h5")
-	return CP4_decomposition(F.mbts[3], rank_max, tol=tol, verbose=verbose, rank_hop = rank_hop, SAVELOAD=SAVELOAD, SAVENAME=SAVENAME)
+function CP4_decomposition(F :: F_OP, rank_max; tol=ϵ, verbose=false, ini_rank=1, rank_hop = 1, SAVELOAD=false, SAVENAME=DATAFOLDER*"CP4.h5")
+	return CP4_decomposition(F.mbts[3], rank_max, tol=tol, verbose=verbose, ini_rank=ini_rank, rank_hop = rank_hop, SAVELOAD=SAVELOAD, SAVENAME=SAVENAME)
 end

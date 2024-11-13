@@ -164,6 +164,39 @@ def chooseType(typeHam, geometries):
             ['H', [0, 0, 2*geometries]],
             ['H', [0, 0, 3*geometries]]
         ]
+    elif typeHam == 'h6_chain':
+        molData = [
+            ['H', [0, 0, 0]],
+            ['H', [0, 0, geometries]],
+            ['H', [0, 0, 2*geometries]],
+            ['H', [0, 0, 3*geometries]],
+            ['H', [0, 0, 4*geometries]],
+            ['H', [0, 0, 5*geometries]]
+        ]
+    elif typeHam == 'h8_chain':
+        molData = [
+            ['H', [0, 0, 0]],
+            ['H', [0, 0, geometries]],
+            ['H', [0, 0, 2*geometries]],
+            ['H', [0, 0, 3*geometries]],
+            ['H', [0, 0, 4*geometries]],
+            ['H', [0, 0, 5*geometries]],
+            ['H', [0, 0, 6*geometries]],
+            ['H', [0, 0, 7*geometries]]
+        ]
+    elif typeHam == 'h10_chain':
+        molData = [
+            ['H', [0, 0, 0]],
+            ['H', [0, 0, geometries]],
+            ['H', [0, 0, 2*geometries]],
+            ['H', [0, 0, 3*geometries]],
+            ['H', [0, 0, 4*geometries]],
+            ['H', [0, 0, 5*geometries]],
+            ['H', [0, 0, 6*geometries]],
+            ['H', [0, 0, 7*geometries]],
+            ['H', [0, 0, 8*geometries]],
+            ['H', [0, 0, 9*geometries]]
+        ]
     elif typeHam == 'n2':
         molData = [
             ['N', [0, 0, 0]],
@@ -210,7 +243,7 @@ def chooseType(typeHam, geometries):
         ]
     elif typeHam == 'nh3':
     # Is there a more direct way of making three vectors with specific mutual angle?
-        bondAngle = 107
+        bondAngle = 104
         bondAngle = math.radians(bondAngle)
         cos = math.cos(bondAngle)
         sin = math.sin(bondAngle)
