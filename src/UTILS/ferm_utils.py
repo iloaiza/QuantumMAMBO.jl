@@ -217,6 +217,31 @@ def get_ferm_op_two(tbt, spin_orb):
                         )
     return op
 
+def get_ferm_op_three(threebt):
+    num_orbitals = threebt.shape[0]  # assuming h1e is square
+    op = FermionOperator.zero()
+    for p in range(num_orbitals):
+        for q in range(num_orbitals):
+            for r in range(num_orbitals):
+                for s in range(num_orbitals):
+                    for m in range(num_orbitals):
+                        for n in range(num_orbitals):
+                            coefficient = threebt[p, q, r, s, m, n]
+                            if coefficient != 0.0:
+                                term_1 = FermionOperator(((2*p, 1), (2*q, 0), (2*r, 1), (2*s, 0), (2*m, 1), (2*n, 0)), coefficient)
+                                term_2 = FermionOperator(((2*p+1, 1), (2*q+1, 0), (2*r, 1), (2*s, 0), (2*m, 1), (2*n, 0)), coefficient)
+                                term_3 = FermionOperator(((2*p, 1), (2*q, 0), (2*r+1, 1), (2*s+1, 0), (2*m, 1), (2*n, 0)), coefficient)
+                                term_4 = FermionOperator(((2*p, 1), (2*q, 0), (2*r, 1), (2*s, 0), (2*m+1, 1), (2*n+1, 0)), coefficient)
+                                term_5 = FermionOperator(((2*p+1, 1), (2*q+1, 0), (2*r+1, 1), (2*s+1, 0), (2*m, 1), (2*n, 0)), coefficient)
+                                term_6 = FermionOperator(((2*p+1, 1), (2*q+1, 0), (2*r, 1), (2*s, 0), (2*m+1, 1), (2*n+1, 0)), coefficient)
+                                term_7 = FermionOperator(((2*p, 1), (2*q, 0), (2*r+1, 1), (2*s+1, 0), (2*m+1, 1), (2*n+1, 0)), coefficient)
+                                term_8 = FermionOperator(((2*p+1, 1), (2*q+1, 0), (2*r+1, 1), (2*s+1, 0), (2*m+1, 1), (2*n+1, 0)), coefficient)
+
+
+                                op += term_1 + term_2 + term_3 + term_4 + term_5 + term_6 + term_7 + term_8
+    
+    return op
+
 def get_ferm_op(tsr, spin_orb=False):
     '''
     Return the corresponding fermionic operators based on the tensor
