@@ -1,5 +1,5 @@
 module QuantumMAMBO
-	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse
+	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse, Statistics
 	using ITensors
 
 	src_dir = @__DIR__
@@ -21,8 +21,8 @@ module QuantumMAMBO
 	include(UTILS_dir * "lcu.jl")
 	function __init__()
 		include(UTILS_dir * "py_utils.jl")
-		include(UTILS_dir * "circuits.jl")
-		include(UTILS_dir * "cp4.jl")
+		# include(UTILS_dir * "circuits.jl")
+		# include(UTILS_dir * "cp4.jl")
 	end
 	include(UTILS_dir * "majorana.jl")
 	include(UTILS_dir * "qubit.jl")
@@ -39,9 +39,8 @@ module QuantumMAMBO
 
 	include(UTILS_dir * "planted.jl")
 	include(UTILS_dir * "wrappers.jl")
-
-	include(UTILS_dir * "chem_benchmark.jl")
-	include(UTILS_dir * "lanczos.jl")
+	include(UTILS_dir * "estimates.jl")
+	include(UTILS_dir * "df_utils.jl")
 
 	if !(@isdefined SAVING_LOADED) && SAVING #only include saving file one time if saving option is on
 		include(UTILS_dir * "saving.jl")
