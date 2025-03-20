@@ -11,6 +11,7 @@ Pkg.instantiate() # uncomment for using local QuantumMAMBO installation
 import QuantumMAMBO
 
 DATAFOLDER = "./data/"
+ϵ_QPE = 1.6e-3 #chemical accuracy
 
 # load one-body and two-body tensors
 
@@ -18,6 +19,7 @@ FILENAME = DATAFOLDER * mol_name
 
 using HDF5
 using PrettyTables
+using Printf
 
 
 if LOAD_HAM == true
@@ -42,17 +44,21 @@ end
 
 METHOD_NAME = []
 ONE_NORMS = [] 
-Q_COUNTS = []
-T_COUNTS = []
+Q_COUNTS = Int64[]
+T_COUNTS = Int64[]
+QPE_COUNTS = Int64[]
 
 println("\nObtaining naive Pauli decomposition estimates...")
 T_Pauli, Q_Pauli = QuantumMAMBO.quantum_estimate(H, "sparse")
 @time λ_Pauli = QuantumMAMBO.PAULI_L1(H)
 @show λ_Pauli
+calls_Pauli = QuantumMAMBO.num_calls(λ_Pauli,ϵ_QPE)
+@show calls_Pauli
 push!(METHOD_NAME, "Pauli")
 push!(ONE_NORMS, λ_Pauli)
 push!(Q_COUNTS, Q_Pauli)
 push!(T_COUNTS, T_Pauli)
+push!(QPE_COUNTS, T_Pauli * calls_Pauli)
 
 println("\nStarting double factorization decomposition")
 @time DF_FRAGS = QuantumMAMBO.DF_decomposition(H)
@@ -72,6 +78,9 @@ push!(METHOD_NAME, "DF")
 push!(ONE_NORMS, λtot_DF)
 push!(Q_COUNTS, Q_DF)
 push!(T_COUNTS, T_DF)
+calls_DF = QuantumMAMBO.num_calls(λtot_DF,ϵ_QPE)
+@show calls_DF
+push!(QPE_COUNTS, T_DF * calls_DF)
 
 
 println("\nObtaining individual BLISS shifts for each fragment")
@@ -102,13 +111,25 @@ push!(METHOD_NAME, "DF+BLISS")
 push!(ONE_NORMS, λtot_BLISS)
 push!(Q_COUNTS, Q_DF_BLISS)
 push!(T_COUNTS, T_DF_BLISS)
+calls_BLISS = QuantumMAMBO.num_calls(λtot_BLISS,ϵ_QPE)
+@show calls_BLISS
+push!(QPE_COUNTS, T_DF_BLISS * calls_BLISS)
 
 
 println("\n\nTL;DR")
 col1 = METHOD_NAME
 col2 = round.(ONE_NORMS, digits=2)
-col3 = Int.(round.(Q_COUNTS, sigdigits=3))
-col4 = round.(T_COUNTS, sigdigits=3)
+col3 = Int.(Q_COUNTS)
 
-data = hcat(col1, col2, col3, col4)
-pretty_table(data, header = ["Method", "1-norm λ", "Qubits", "T-gates"])
+col4 = String[]
+col5 = String[]
+for i in 1:length(T_COUNTS)
+    T_string = @sprintf "%.2e" T_COUNTS[i]
+    push!(col4, T_string)
+
+    QPE_string = @sprintf "%.2e" QPE_COUNTS[i]
+    push!(col5, QPE_string)
+end
+
+data = hcat(col1, col2, col3, col4, col5)
+pretty_table(data, header = ["Method", "1-norm λ", "Qubits", "T-gates", "QPE counts"])
