@@ -1,4 +1,5 @@
-using LeastSquaresOptim
+
+using LeastSquaresOptim, Einsum
 
 
 #=
@@ -423,77 +424,78 @@ function THC_fixed_uni_step_lsq(F::F_OP, step_size=4)
 	#F_sol=THC_x_to_F_OP(sol.minimizer, F.N, step_size,lambda_L)
 end
 
-function thc_cost_vec(F::F_OP, x, p, N, a, lambda_L)
-	Fx=THC_tb_x_to_F_OP(x, N, a,lambda_L,F.spin_orb)  
-	output=zeros(F.N^4+a^2)
-	idx=0
-	for p in 1:N
-		for q in 1:N
-			for r in 1:N
-				for s in 1:N
-					idx+=1
-					output[idx]=F.mbts[3][p,q,r,s]-Fx.mbts[3][p,q,r,s]
-				end
-			end
-		end
-	end
+
+function of_thc_x_to_ls_thc_x(x,N,a,lambda_L,unitary_L)
+	x_out=zeros(lambda_L+unitary_L)
+	lambda=zeros(a,a)
+	Us=zeros(a,N)
 	
-	lambda=lambda_for_THC(N,a,x)
+	#get lambda from x
+	idx=0
 	for i in 1:a
 		for j in 1:a
 			idx+=1
-			output[idx]=p*lambda[i,j]
+			lambda[i,j]=x[a*N+idx]
 		end
 	end
-			
-	return output
+	#get Us from x
+	idx=0
+	for i in 1:a
+		for j in 1:N
+			idx+=1
+			Us[i,j]=x[idx]
+		end
+	end
+	#get x_out from lambda
+	idx=0
+	for i in 1:a
+		for j in i:a
+			idx+=1
+			x_out[idx]=lambda[i,j]/2
+		end
+	end
+	#transform the Us
+	for i in 1:a
+		u1=Us[i,1]
+		for j in 2:N
+			Us[i,j]=Us[i,j]/u1
+		end
+	end
+	
+	#get x_out from Us
+	
+	idx=0
+	for i in 1:a
+		for j in 1:N-1
+			idx+=1
+			x_out[lambda_L+idx]=Us[i,1+j]
+		end
+	end
+	
+	return x_out
 end
 
-function THC_tb_lsq(F::F_OP, step_size=4, tol=1e-6, iter=1, iter_max=20,p=0.2)
+
+function THC_tb_lsq(F::F_OP, step_size, tol=1e-6, iter=1, iter_max=1, p=0.5, parallel_gradients = false)
 	a=step_size
 	N=F.N
 	lambda_L=Int64(a*(a+1)/2)
 	unitary_L=a*(F.N-1)
 	count=0
 	
-	
-	
-	x0=ones(lambda_L+unitary_L)
-	#x0.=rand(0:1,length(x0))
-	#x0[lambda_L+1:end].=rand(0:1,length(unitary_L))
-	#x0[1:lambda_L].=[i/10^(4) for i in x0[1:lambda_L]]
-	#x0[1:lambda_L]=ones(lambda_L)
+	x0.=rand(0:1,length(x0))
 	
 	
 	obt=zeros(N,N)
 	F=F_OP(([0],obt,F.mbts[3]),false)
 	
-	if iter==1
-		
-		@show L1_TB_cost(F)
-		
-	elseif iter==2
-		#p=0.1
-	else
-		#p=0.1
-	end
 	
-	residue_norm=L2_TB_cost(F)
-	if residue_norm<tol^2
-		p=0.1
-	end
-	
-	if iter==1
-		s=1
-	else
-		s=1
-	end
 	
 	
 	function cost_f!(output, x)
 		
 		Fx=THC_tb_x_to_F_OP(x, F.N, step_size,lambda_L,F.spin_orb)
-		#output=zeros(F.N^4+a^2)
+		
 		idx=0
 		for p in 1:N
 			for q in 1:N
@@ -521,48 +523,28 @@ function THC_tb_lsq(F::F_OP, step_size=4, tol=1e-6, iter=1, iter_max=20,p=0.2)
 				output[idx]=p*lambda[i,j]
 			end
 		end
-				
-		#return output
+		
+		new_cost=sum(abs2.(output))
+		
 	end
 	
 	function cost_g!(J, x)
-		J.=gradient_thc(N, a, x, lambda_L,p)
-		#J.=numeric_gradient_thc(F,N,a,x, lambda_L, p)
+		if parallel_gradients == false
+			gradient_thc!(J, N, a, x, lambda_L,p)
+		else
+			multiprocessed_gradient_thc!(J, N, a, x, lambda_L,p)
+		end
+		#numeric_gradient_thc!(J,F,N,a,x, lambda_L, p)
 	end
 	
 	
-	function rosenbrock_f!(out, x)
-	 out[1] = 1 - x[1]
-	 out[2] = 100 * (x[2]-x[1]^2)
-	end
 	
-	function rosenbrock_g!(J, x)
-	    J[1, 1] = -1
-	    J[1, 2] = 0
-	    J[2, 1] = -200 * x[1]
-	    J[2, 2] = 100
-	end
+	sol=LeastSquaresOptim.optimize!(LeastSquaresProblem(x = x0, f! = cost_f!, g! = cost_g!, output_length=N^4+a^2), LevenbergMarquardt(LeastSquaresOptim.Cholesky()), show_trace=false, show_every=1,iterations=1000,g_tol=1e-8)
 	
 	
-	#sol=LeastSquaresOptim.optimize!(LeastSquaresProblem(x = x0, f! = cost_f!, output_length=N^4+a^2, autodiff=:central), LevenbergMarquardt(LeastSquaresOptim.Cholesky()), show_trace=true, show_every=1)
-	
-	
-	print("Analytic Gradients:\n\n\n")
-	x0=ones(lambda_L+unitary_L)
-	sol=LeastSquaresOptim.optimize!(LeastSquaresProblem(x = x0, f! = cost_f!, g! = cost_g!, output_length=N^4+a^2), LevenbergMarquardt(LeastSquaresOptim.Cholesky()), show_trace=false, show_every=1)
-	
-	
-	
-	#sol=LeastSquaresOptim.optimize!(LeastSquaresProblem(x = x0, f! = cost_f!, g!=cost_g!, output_length = N^4+a^2), LevenbergMarquardt(LeastSquaresOptim.Cholesky()))
-	
-	
-	#sol=optimize(cost, x0, LevenbergMarquardt(LeastSquaresOptim.Cholesky()))
-	
-	#optimize!(LeastSquaresProblem(x=x0, f!=cost_f!, output_length=N^4+a^2, autodiff=:central),  LevenbergMarquardt(LeastSquaresOptim.Cholesky()))
 	
 	print(sol)
 	x=sol.minimizer
-	
 	
 	x_lambda=x[1:lambda_L]
 	lambda=zeros(a,a)
@@ -582,26 +564,21 @@ function THC_tb_lsq(F::F_OP, step_size=4, tol=1e-6, iter=1, iter_max=20,p=0.2)
 		end
 	end
 	
-	if F.spin_orb==false
-		norm=4*norm
-	end
 	
 	@show norm
-	#tbt=zeros(N,N,N,N)
-	#F1=F_OP(([0],F.mbts[2],tbt))
-	#@show PAULI_L1(F1)
+	
 	
 	Fx=THC_tb_x_to_F_OP(x, F.N, step_size,lambda_L,F.spin_orb,false)
-	#return Fx
+	
 	F_res=F-Fx
 	@show L1_TB_cost(F_res)
 	minimum=L2_TB_cost(F,Fx)
 	if minimum>tol && iter<iter_max
 		iter+=1		
-		F_iter, norm_recursive, count=THC_tb_lsq(F_res, a, tol, iter, iter_max)
+		F_iter, norm_recursive, count=THC_tb_lsq(F_res, a, tol, iter, iter_max, iter_start)
 		return Fx+F_iter, norm+norm_recursive, count+1
 	else
-		return Fx, norm, 1
+		return Fx, norm, iter_start
 	end
 	
 	
