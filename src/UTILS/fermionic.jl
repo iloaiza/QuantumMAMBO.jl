@@ -147,9 +147,9 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: THC)
 	return F_OP(2,([0.0], [0.0], tbt), [false,false,true], spin_orb, N)
 end
 
-function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
+function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: CP4)
 	if nUs != 4
-		error("Trying to build MTD_CP4 fragment with $nUs unitaries defined, should be 4!")
+		error("Trying to build CP4 fragment with $nUs unitaries defined, should be 4!")
 	end
 	U1 = one_body_rotation_coeffs(U[1])
 	U2 = one_body_rotation_coeffs(U[2])
@@ -158,6 +158,18 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
 
 	tbt = zeros(Float64,N,N,N,N)
 	@einsum tbt[a,b,c,d] = U1[a] * U2[b] * U3[c] * U4[d]
+	
+	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
+end
+
+function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: SYM4)
+	if nUs != 1
+		error("Trying to build SYM4 fragment with $nUs unitaries defined, should be 1!")
+	end
+	U1 = one_body_rotation_coeffs(U[1])
+	
+	tbt = zeros(Float64,N,N,N,N)
+	@einsum tbt[a,b,c,d] = U1[a] * U1[b] * U1[c] * U1[d]
 	
 	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
 end
@@ -426,12 +438,20 @@ function CSA_SD_x_to_F_FRAG(x, N, spin_orb, cartan_L = Int(N*(N+1)/2); do_Givens
 	end
 end
 
-function MTD_CP4_x_to_F_FRAG(x, N, spin_orb=false)
+function SYM4_x_to_F_FRAG(x, N, spin_orb=false)
+	Uvec = x[1:end-1]
+	omega = x[end]
+
+	Us = tuple(single_majorana_rotation(N, Uvec))
+	return F_FRAG(1, Us, SYM4(), cartan_m1(), N, spin_orb, omega, true)
+end
+
+function CP4_x_to_F_FRAG(x, N, spin_orb=false)
 	Uvecs = reshape(x[1:end-1], (N-1,4))
 	omega = x[end]
 
 	Us = tuple([single_majorana_rotation(N, Uvecs[:,i]) for i in 1:4]...)
-	return F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, spin_orb, omega, true)
+	return F_FRAG(4, Us, CP4(), cartan_m1(), N, spin_orb, omega, true)
 end
 
 function THC_x_to_F_FRAGS(x, α, N)

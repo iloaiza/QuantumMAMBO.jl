@@ -4,7 +4,7 @@ circuits = pyimport("circuits")
 cirq = pyimport("cirq")
 cft = pyimport("cirq_ft")
 
-function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5)
+function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5, verbose = true, print_circs = false)
 	#=
 	Creates Pauli (or Sparse) LCU oracles
 
@@ -37,6 +37,20 @@ function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5)
 
 	prep_circ = circuits.recursive_circuit(prep)
 
+	if verbose
+		@show cft.t_complexity(prep)
+		@show cft.t_complexity(sel)
+	end
+
+	if print_circs
+		println("Printing circuits:\n PREPARE:")
+		println(prep_circ)
+		println("\n\n")
+		println("\n SELECT:")
+		println(sel_circ)
+		println("\n\n")
+	end
+
 	println("Warning, oracle circuit does not implement inverse of PREP, good for gate count but incorrect circuit")
 	tot_circ = prep_circ + sel_circ + prep_circ
 
@@ -47,7 +61,7 @@ function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5)
 	return t_count, tot_qubits
 end
 
-function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4)
+function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4, verbose=true, print_circs=false)
 	#=
 	Creates anticommputing (AC) LCU oracles
 
@@ -86,6 +100,23 @@ function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4)
 	n_reg = prep.n_register
 
 	sel = circuits.Select_AC(ac_int_vecs, ac_coeffs, n_reg = n_reg)
+
+	if verbose
+		@show cft.t_complexity(prep)
+		@show length(AC_ops)
+		@show cft.t_complexity(sel)
+	end
+
+	if print_circs
+		println("Printing circuits:\n PREPARE:")
+		prep_circ = circuits.recursive_circuit(prep)
+		println(prep_circ)
+		println("\n\n")
+		println("\n SELECT:")
+		sel_circ = circuits.to_circuit(sel)
+		println(sel_circ)
+		println("\n\n")
+	end
 
 	t_count = 2 * cft.t_complexity(prep) + cft.t_complexity(sel)
 
@@ -157,4 +188,142 @@ function DF_circuit(H :: F_OP; epsilon = 1e-5, DF_tol = SVD_tol)
 	return t_count, tot_qubits
 end
 
+function MTD_circuit(H :: F_OP, flavour :: String; epsilon = 1e-5, decomp_epsilon = 1e-5, debug = true, kwargs...)
+	#=
+
+	inputs:
+		- H: fermionic operator in QuantumMAMBO format
+		- flavour: type of LCU decomposition, see implemented_flavours
+		- epsilon: accuracy for coefficient preparation circtuits
+		- decomp_epsilon: tolerance for decomposition 2-norm
+		- additional optional keyword arguments which depend on the decomposition flavour
+	=#
+	implemented_flavours = ["CP4", "MPS", "THC", "DF"]
+	if !(flavour in implemented_flavours)
+		error("$flavour decomposition not implemented, try one of $implemented_flavours")
+	end
+
+	if H.spin_orb
+		error("Trying to do MTD decomposition for spin-orbit=true not implemented!")
+	end
+
+	obt = H.mbts[2] + ob_correction(H)
+	N = H.N
+
+	if flavour == "CP4"
+		if haskey(kwargs, :rank_max)
+			rank_max = kwargs[:rank_max]
+		else
+			rank_max = 500
+		end
+
+		if haskey(kwargs, :ini_rank)
+			ini_rank = kwargs[:ini_rank]
+		else
+			ini_rank = 5
+		end
+		
+		if haskey(kwargs, :rank_hop)
+			rank_hop = kwargs[:rank_hop]
+		else
+			rank_hop = 20
+		end
+		
+		FACTORS, W = CP_decomp(H.mbts[3], rank_max, tol=decomp_epsilon, verbose=true, ini_rank = ini_rank, rank_hop = rank_hop)
+
+		US, Omega_info = CP4_factors_normalizer(FACTORS)
+
+		U_info = zeros(N,4,W)
+		for i in 1:N
+			for m in 1:4
+				for w in 1:W
+					U_info[i,m,w] = US[m][i,w]
+				end
+			end
+		end
+
+		w_shape = Tuple(W)
+	elseif flavour == "DF"
+		DF_frags = DF_decomposition(H, tol = decomp_epsilon)
+		R = length(DF_frags)
+		Omega_info = zeros(R, N)
+		U_info = zeros(N, R, N)
+		for r in 1:R
+			for i in 1:N
+				Omega_info[r,i] = DF_frags[r].C.λ[i] * sqrt(DF_frags[r].coeff)
+				Ur = one_body_unitary(DF_frags[r].U[1])
+				U_info[:,r,i] = Ur[:,i]
+			end
+		end
+
+		w_shape = (R,N,N)
+
+	elseif flavour == "THC"
+		error("THC decomposition is not implemented!")
+	elseif flavour == "MPS"
+		S1, S2, S3, U1, U2, U3, U4 = tbt_to_mps(H.mbts[3])
+
+		u_left, u_right = inds(S1)
+		v_left, v_right = inds(S2)
+		w_left, w_right = inds(S3)
+		i, _ = inds(U1)
+		j, _, _ = inds(U2)
+		k, _, _ = inds(U3)
+		l, _ = inds(U4)
+
+		A1 = u_left.space
+		A2 = v_left.space
+		A3 = w_left.space
+
+		S1_arr = diag_els(Array(S1, u_left, u_right))
+		S2_arr = diag_els(Array(S2, v_left, v_right))
+		S3_arr = diag_els(Array(S3, w_left, w_right))
+
+		Omega_info = (S1_arr, S2_arr, S3_arr)
+
+		U1_arr = Array(U1, i, u_left)
+		U2_arr = Array(U2, j, u_right, v_left)
+		U3_arr = Array(U3, k, v_right, w_left)
+		U4_arr = Array(U4, l, w_right)
+
+		U_info = (U1_arr, U2_arr, U3_arr, U4_arr)
+
+		w_shape = (A1, A2, A3)
+	end
+
+
+	prep = circuits.MTD_Prepare(epsilon, obt, H.mbts[3], w_shape, Omega_info, U_info, flavour)
+
+	prep_circ = circuits.recursive_circuit(prep)
+
+	sel = circuits.MTD_Select(N)
+
+	sel_circ = circuits.recursive_circuit(sel)
+
+	PREP_COMP = cft.t_complexity(prep)
+	@show PREP_COMP
+	
+	SEL_COMP = cft.t_complexity(sel)
+	@show SEL_COMP
+
+	TOT_COMP = 2*PREP_COMP + SEL_COMP
+	@show TOT_COMP
+	
+
+	num_qubits = length(cirq.Circuit(cirq.decompose(prep_circ + sel_circ)).all_qubits())
+	@show num_qubits
+
+	return prep, sel
+end
+
+function diag_els(A)
+	n = size(A)[1]
+
+	Adiag = zeros(n)
+	for i in 1:n
+		Adiag[i] = A[i,i]
+	end
+
+	return Adiag
+end
 

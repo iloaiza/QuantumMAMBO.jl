@@ -10,6 +10,12 @@ function L1(F :: F_FRAG; debug = false, count = false)
 		return THC_L1(F, debug = debug, count = count)
 	elseif F.TECH == OBF()
 		return OBF_L1(F, debug = debug, count = count)
+	elseif F.TECH == CP4()
+		if count
+			return [abs(F.coeff),1]
+		else
+			return abs(F.coeff)
+		end
 	else
 		error("Trying to calculate LCU 1-norm decomposition for fermionic fragment with FRAGMENTATION_TECH=$(F.TECH), not implemented!")
 	end

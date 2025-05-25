@@ -14,6 +14,15 @@ ham = pyimport("ham_utils")
 fermionic = pyimport("ferm_utils")
 qub = pyimport("py_qubits")
 
+if CIRCUIT_tools == true
+	include(UTILS_dir * "circuits.jl")
+	println("Including circuit tools, be wary of results: cirq circuits have not been debugged...")
+end
+
+if DF_tools == true
+	df_tools = pyimport("df_cost")
+end
+
 of_simplify(OP) = of.reverse_jordan_wigner(of.jordan_wigner(OP))
 
 function qubit_transform(op, transformation=F2Q_map)
