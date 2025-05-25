@@ -39,7 +39,7 @@ function F_OP(mbts :: Tuple, spin_orb=false)
 	for i in 1:Nbods + 1
 		if mbts[i] != [0]
 			filled[i] = true
-			N = size(mbts[i])[end]
+			N = size(mbts[i])[1]
 		end
 	end
 	
@@ -250,10 +250,16 @@ struct OBF <: FRAGMENTATION_TECH
 	#OP = U' * cartan_1b * U
 end
 
-struct MTD_CP4 <: FRAGMENTATION_TECH
+struct CP4 <: FRAGMENTATION_TECH
 	# Fragments of CP4 decomposition
 	# OP = ∑_στ U[1]' * γ1σ,0 * U[1] * U[2]' * γ1σ,1 * U[2] * U[3]' * γ1τ,0 * U[3] * U[4]' * γ1τ,1 * U[4]
 end
+
+struct SYM4 <: FRAGMENTATION_TECH
+	# Fragments of SYM4 decomposition
+	# Same as CP4 but same coefficients for all fragments
+end
+
 
 struct F_FRAG <: FRAGMENT
 	nUs :: Int64 #number of unitaries defining the fragment

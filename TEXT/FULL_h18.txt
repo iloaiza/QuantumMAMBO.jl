@@ -1,0 +1,39 @@
+Loading molecular data from /home/nacho/MEGAsync/Codes/QuantumMAMBO.jl/src/UTILS/../../SAVED/h18.h5
+H.N = 18
+Starting resource estimates for method list ["sparse", "AC", "SVD", "CP4", "MPS", "DF", "DF_openfermion"]
+Starting orbital-optimized sparse routine...
+(T, Q, R) = (10902.0, 114.0, 4.0)
+estimate = QM.quantum_estimate(Hrot_sparse, "sparse") = ((11104, 115), 46.76080656444665)
+Starting orbital-optimized AC routine...
+(T, Q, R) = (13238.0, 81.0, 18660.0)
+estimate = QM.quantum_estimate(Hrot_sparse, "AC") = ((954289, 82), 38.74805816164771)
+Starting sparse routine...
+(T, Q, R) = (62222.0, 112.0, 4.0)
+estimate = QM.quantum_estimate(H_sparse, routine) = ((62424, 113), 162.3271254564513)
+Starting AC routine...
+(T, Q, R) = (59842.0, 83.0, 244044.0)
+estimate = QM.quantum_estimate(H_sparse, routine) = ((12367326, 84), 50.30217223081325)
+Starting SVD routine...
+(T, Q, R) = (118194.0, 140.0, 4.0)
+(T, Q, R) = (188166.0, 98.0, 4.0)
+estimate = QM.quantum_estimate(H, routine) = ((118396, 141), (188368, 99), 71.84862725442402)
+Starting CP4 routine...
+CP4 decomposition converged to cost of 1.71685082420734e-6 using rank=375
+(T, Q, R) = (30890.0, 136.0, 4.0)
+(T, Q, R) = (35378.0, 94.0, 4.0)
+estimate = QM.quantum_estimate(H, routine) = ((31092, 137), (35580, 95), 44.175562026840176)
+Starting MPS routine...
+(T, Q, R) = (38422.0, 205.0, 18.0)
+estimate = QM.quantum_estimate(H, routine) = ((39330, 206), 1672.6665355616565)
+Starting DF routine...
+(bN, kN, lN) = (5.0, 4.0, 1.0)
+(bN, kN, lN) = (7.0, 6.0, 1.0)
+(T, Q, R) = (109722.0, 160.0, 988.0)
+estimate = QM.quantum_estimate(H, routine) = ((159549, 161), 57.39774383479329)
+Starting DF_openfermion routine...
+L = 123
+Lxi = 1011
+givens_beta = 14
+μ = 7
+(T, Q, R) = (32333, 634, 0)
+estimate = QM.quantum_estimate(H, routine) = ((32333, 635), 57.39774383479329)

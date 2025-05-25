@@ -147,9 +147,9 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: THC)
 	return F_OP(2,([0.0], [0.0], tbt), [false,false,true], spin_orb, N)
 end
 
-function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
+function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: CP4)
 	if nUs != 4
-		error("Trying to build MTD_CP4 fragment with $nUs unitaries defined, should be 4!")
+		error("Trying to build CP4 fragment with $nUs unitaries defined, should be 4!")
 	end
 	U1 = one_body_rotation_coeffs(U[1])
 	U2 = one_body_rotation_coeffs(U[2])
@@ -158,6 +158,18 @@ function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: MTD_CP4)
 
 	tbt = zeros(Float64,N,N,N,N)
 	@einsum tbt[a,b,c,d] = U1[a] * U2[b] * U3[c] * U4[d]
+	
+	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
+end
+
+function fermionic_frag_representer(nUs, U, C, N, spin_orb, TECH :: SYM4)
+	if nUs != 1
+		error("Trying to build SYM4 fragment with $nUs unitaries defined, should be 1!")
+	end
+	U1 = one_body_rotation_coeffs(U[1])
+	
+	tbt = zeros(Float64,N,N,N,N)
+	@einsum tbt[a,b,c,d] = U1[a] * U1[b] * U1[c] * U1[d]
 	
 	return F_OP(2,([0], [0], tbt), [false,false,true], spin_orb, N)
 end
@@ -426,12 +438,20 @@ function CSA_SD_x_to_F_FRAG(x, N, spin_orb, cartan_L = Int(N*(N+1)/2); do_Givens
 	end
 end
 
-function MTD_CP4_x_to_F_FRAG(x, N, spin_orb=false)
+function SYM4_x_to_F_FRAG(x, N, spin_orb=false)
+	Uvec = x[1:end-1]
+	omega = x[end]
+
+	Us = tuple(single_majorana_rotation(N, Uvec))
+	return F_FRAG(1, Us, SYM4(), cartan_m1(), N, spin_orb, omega, true)
+end
+
+function CP4_x_to_F_FRAG(x, N, spin_orb=false)
 	Uvecs = reshape(x[1:end-1], (N-1,4))
 	omega = x[end]
 
 	Us = tuple([single_majorana_rotation(N, Uvecs[:,i]) for i in 1:4]...)
-	return F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, spin_orb, omega, true)
+	return F_FRAG(4, Us, CP4(), cartan_m1(), N, spin_orb, omega, true)
 end
 
 function THC_x_to_F_FRAGS(x, α, N)
@@ -599,99 +619,5 @@ function to_CSA_SD(F :: F_FRAG)
 	end
 end
 
-function F_OP_converter(F::F_OP)
-	obt=zeros(2*F.N,2*F.N)
-	tbt=zeros(2*F.N,2*F.N,2*F.N,2*F.N)
-	for sigma in 1:2
-		for i in 1:F.N
-			for j in 1:F.N
-				obt[2*i-mod(sigma,2), 2*j-mod(sigma,2)]=F.mbts[2][sigma,i,j]
-			end
-		end
-	end
-	for sigma in 1:4
-		i=0
-		j=0
-		if sigma<=2
-			i=1
-		end
-		if sigma==1 || sigma==3
-			j=1
-		end
-		for p in 1:F.N
-			for q in 1:F.N
-				for r in 1:F.N
-					for s in 1:F.N
-						tbt[2*p-i, 2*q-i,2*r-j,2*s-j]=F.mbts[3][sigma,p,q,r,s]
-					end
-				end
-			end
-		end
-	end
-	return F_OP((F.mbts[1],obt,tbt),true)
-end
 
-function F_OP_compress(F::F_OP)
-	N=div(F.N,2)
-	obt=zeros(2,N,N)
-	tbt=zeros(4,N,N,N,N)
-	
-	align=[1,4]
-	anti=[2,3]
-	
-	for i in 1:F.N
-		for j in 1:F.N
-			sigma=2-mod(i,2)
-			if sigma==2-mod(j,2)
-				obt[sigma,ceil(Int64,i/2),ceil(Int64,j/2)]=F.mbts[2][i,j]
-			end
-		end
-	end
-	for p in 1:F.N
-		for q in 1:F.N
-			for r in 1:F.N
-				for s in 1:F.N
-					sigma=2-mod(p,2)
-					tau=2-mod(r,2)
-					if sigma==tau
-						if sigma==2-mod(q,2) && tau==2-mod(s,2)
-							tbt[align[sigma],ceil(Int64,p/2),ceil(Int64,q/2),ceil(Int64,r/2),ceil(Int64,s/2)]=F.mbts[3][p,q,r,s]
-						end
-					else
-						if sigma==2-mod(q,2) && tau==2-mod(s,2)
-							tbt[anti[sigma],ceil(Int64,p/2),ceil(Int64,q/2),ceil(Int64,r/2),ceil(Int64,s/2)]=F.mbts[3][p,q,r,s]
-						end
-					end
-				end
-			end
-		end
-	end
-	
-	
-	return F_OP((F.mbts[1],obt,tbt))
-end
 
-function F_OP_space_to_spin(F::F_OP)
-	obt=zeros(2,F.N,F.N)
-	tbt=zeros(4,F.N,F.N,F.N,F.N)
-	for i=1:2
-		obt[i,:,:]=F.mbts[2][:,:]
-	end
-	for i=1:4
-		tbt[i,:,:,:,:]=F.mbts[3][:,:,:,:]
-	end
-	F_spin=F_OP((F.mbts[1],obt,tbt))
-	F_spin_openferm=F_OP_converter(F_spin)
-	return F_spin_openferm
-end
-	
-function TB_extract(F::F_OP)
-	N=F.N
-	obt=zeros(N,N)
-	return F_OP(([0.0],obt,F.mbts[3]), F.spin_orb)
-end
-
-function OB_extract(F::F_OP; γ4_contribution=true)
-	obt=F.mbts[2]+ob_correction(F)
-	return F_OP(([0.0], obt), F.spin_orb)
-end

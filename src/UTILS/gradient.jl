@@ -2,6 +2,10 @@
 
 #PART-A: Gradients for two-body terms
 
+#using Base.Threads, Distributed
+
+
+
 function del_wr_lr(n,l,m,U)
 	wr_lr=zeros(n,n,n,n)
 	Ul = U[:,l]
@@ -292,73 +296,65 @@ end
 	
 #Gradients for THC
 
-
-function del_J_tbt_lambda(lambda, Us, p, q, r, s, m, n)
+function gradient_thc!(J,N, a, x, lambda_L, penalty_coeff)
 	
-	derivative = Us[m,p]*Us[m,q]*Us[n,r]*Us[n,s]
-	
-	if m!=n
-		derivative+=Us[n,p]*Us[n,q]*Us[m,r]*Us[m,s]
-	end
-	
-	return derivative
-end
-
-function del_J_punish_lambda(lambda, Us, μ, ν, m, n, p)
-	if m==n && μ==m && ν==n
-		return p
-	
-	elseif (μ==m && ν==n) || (μ==n && ν==m)
-		return p
-	else
-		return 0
-	end
-end
-
-function del_term(lambda, Us, theta, p,q,r,s, m, k, N, a)
-	#term=zeros(N,N,N,N, a, N-1)
-	term=0
-	id=zeros(N, N)
-	for i in 1:N-1
-		id[i,i]=1
-	end
-	
-	#@einsum term[p,q,r,s, m, k] += lambda[m,n]*(id[p,k]*Us[m,1]-theta[m,p]*theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
-	
-	#for p in 1:N
-		#for q in 1:N
-			#for r in 1:N
-				#for s in 1:N
-					#for m in 1:a
-						#for k in 1:N-1
-							for n in 1:a
-								if p!=1
-									term += lambda[m,n]*(id[p-1,k]*Us[m,1]-theta[m,p-1]*theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
-								else
-									term+= lambda[m,n]*(-theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
-								end
-							end
-						#end
-					#end
-				#end
-			#end
-		#end
-	#end
-	
-	return term
-end
-	
-function del_J_tbt_U(lambda, Us, theta, p, q, r, s, m, k, N, a)
-	return del_term(lambda, Us, theta, p,q,r,s, m, k, N, a) + del_term(lambda, Us, theta, q,p, r, s, m, k, N, a) + del_term( lambda, Us, theta, r, s, p, q, m, k, N, a) + del_term(lambda, Us, theta, s, r, p, q, m, k, N, a)
-end
-
-function gradient_thc(N, a, x, lambda_L, p)
 	lambda=lambda_for_THC(N, a, x)
 	Us=Us_for_THC(N, a, x, lambda_L)
 	theta=theta_for_THC(N,a,x, lambda_L)
-	J=zeros(N^4+a^2, Int64(a*(a+1)/2+a*(N-1)))
+	#J=zeros(N^4+a^2, Int64(a*(a+1)/2+a*(N-1)))
+	
+	function del_J_tbt_lambda(p, q, r, s, m, n)
+	
+		derivative = Us[m,p]*Us[m,q]*Us[n,r]*Us[n,s]
+		
+		if m!=n
+			derivative+=Us[n,p]*Us[n,q]*Us[m,r]*Us[m,s]
+		end
+		
+		return derivative
+	end
+
+	function del_J_penalty_lambda(μ, ν, m, n, p)
+		if m==n && μ==m && ν==n
+			return p
+		
+		elseif (μ==m && ν==n) || (μ==n && ν==m)
+			return p
+		else
+			return 0
+		end
+	end
+	
+	function del_term(p,q,r,s, m, k)
+		#term=zeros(N,N,N,N, a, N-1)
+		term=0
+		id=zeros(N, N)
+		for i in 1:N-1
+			id[i,i]=1
+		end
+		
+		
+		for n in 1:a
+			if p!=1
+				term += lambda[m,n]*(id[p-1,k]*Us[m,1]-theta[m,p-1]*theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
+			else
+				term+= lambda[m,n]*(-theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
+			end
+		end
+
+		
+		return term
+	end
+	
+	
+	
+	
+	function del_J_tbt_U(p, q, r, s, m, k)
+		return del_term(p,q,r,s, m, k) + del_term(q,p, r, s, m, k) + del_term(r, s, p, q, m, k) + del_term(s, r, p, q, m, k)
+	end
 	
 	#Derivative wrt lambda
+	
 	
 	idx_mn=0
 	for m in 1:a
@@ -372,18 +368,20 @@ function gradient_thc(N, a, x, lambda_L, p)
 						for s in 1:N
 							idx_tbt+=1
 							
-							J[idx_tbt, idx_mn]=-del_J_tbt_lambda(lambda, Us, p, q, r, s, m, n)
+							J[idx_tbt, idx_mn]=-del_J_tbt_lambda(p, q, r, s, m, n)
 						end
 					end
 				end
 			end
 			
-			idx_punish=N^4
+			idx_penalty=N^4
 			for μ in 1:a
 				for ν in 1:a
-					idx_punish+=1
 					
-					J[idx_punish, idx_mn]=del_J_punish_lambda(lambda, Us, μ, ν, m, n, p)
+					 idx_penalty+=1
+					 idx_mn, m,n, μ, ν, idx_penalty
+					
+					 J[idx_penalty, idx_mn]=del_J_penalty_lambda(μ, ν, m, n, penalty_coeff)
 				end
 			end
 			
@@ -403,7 +401,7 @@ function gradient_thc(N, a, x, lambda_L, p)
 						for s in 1:N
 							idx_tbt+=1
 							
-							 J[idx_tbt, idx_U]=-del_J_tbt_U(lambda, Us, theta, p, q, r, s, m, k, N, a)
+							 J[idx_tbt, idx_U]=-del_J_tbt_U(p, q, r, s, m, k)
 						end
 					end
 				end
@@ -411,31 +409,345 @@ function gradient_thc(N, a, x, lambda_L, p)
 			
 		end
 	end
+	
 	#@show J
 	#exit()
-	return J
+	#return J
+end
+
+
+#=function multithreaded_gradient_thc!(J, N, a, x, lambda_L, punishment_coeff)
+	lambda=lambda_for_THC(N, a, x)
+	Us=Us_for_THC(N, a, x, lambda_L)
+	theta=theta_for_THC(N,a,x, lambda_L)
+	G=zeros(N^4+a^2, Int64(a*(a+1)/2+a*(N-1)))
+	#G=SharedArray(zeros(N^4+a^2, Int64(a*(a+1)/2+a*(N-1))))
+	#M=a
+	
+	
+	function del_J_tbt_lambda(p, q, r, s, m, n)
+	
+		derivative = Us[m,p]*Us[m,q]*Us[n,r]*Us[n,s]
+		
+		if m!=n
+			derivative+=Us[n,p]*Us[n,q]*Us[m,r]*Us[m,s]
+		end
+		
+		return derivative
+	end
+
+	function del_J_punish_lambda(μ, ν, m, n, p)
+		if m==n && μ==m && ν==n
+			return p
+		
+		elseif (μ==m && ν==n) || (μ==n && ν==m)
+			return p
+		else
+			return 0
+		end
+	end
+	
+	function del_term(p,q,r,s, m, k)
+		#term=zeros(N,N,N,N, a, N-1)
+		term=0
+		id=zeros(N, N)
+		for i in 1:N-1
+			id[i,i]=1
+		end
+		
+		
+		for n in 1:a
+			if p!=1
+				term += lambda[m,n]*(id[p-1,k]*Us[m,1]-theta[m,p-1]*theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
+			else
+				term+= lambda[m,n]*(-theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
+			end
+		end
+
+		
+		return term
+	end
+	
+	
+	
+	
+	function del_J_tbt_U(p, q, r, s, m, k)
+		return del_term(p,q,r,s, m, k) + del_term(q,p, r, s, m, k) + del_term(r, s, p, q, m, k) + del_term(s, r, p, q, m, k)
+	end
+	#Derivative wrt lambda
+	 #idx_mn=0
+	 @time begin
+        @threads for m in 1:a
+                #idx_mn=(m-1)*a
+                
+                for n in m:a
+
+                        #idx_mn+=1
+                        if m==1
+                                idx_mn=n
+                        elseif m==2
+                                idx_mn=a+n-1
+                        else
+                                idx_mn=(m-1)*a+2m-1-Int64(m*(m+1)/2)+(n-m+1)
+                        end
+
+                        for pqrs in CartesianIndices((N,N,N,N))
+
+                                                        #=p=Tuple(pqrs)[1]
+                                                        q=Tuple(pqrs)[2]
+                                                        r=Tuple(pqrs)[3]
+                                                        s=Tuple(pqrs)[4]=#
+
+                                                        idx_tbt=(Tuple(pqrs)[1]-1)*N^3+(Tuple(pqrs)[2]-1)*N^2+(Tuple(pqrs)[3]-1)*N+Tuple(pqrs)[4]
+
+                                                        G[idx_tbt, idx_mn]=-del_J_tbt_lambda(Tuple(pqrs)[1], Tuple(pqrs)[2], Tuple(pqrs)[3],Tuple(pqrs)[4], m, n)
+
+                                end
+
+
+                        idx_punish=N^4
+                        for μ in 1:a
+                                for ν in 1:a
+
+                                        idx_punish+=1
+
+                                         idx_mn, m,n, μ, ν, idx_punish
+                                         G[idx_punish, idx_mn]=del_J_punish_lambda(μ, ν, m, n, punishment_coeff)
+                                end
+                        end
+
+                end
+        end
+
+	
+	@threads for m in 1:a
+                #idx_U=Int64(a*(a+1)/2)+(m-1)*(N-1)
+                for k in 1:N-1
+                        idx_U=Int64(a*(a+1)/2)+(m-1)*(N-1)+k
+
+
+                         for pqrs in CartesianIndices((N,N,N,N))
+
+                                                        #=p=Tuple(pqrs)[1]
+                                                        q=Tuple(pqrs)[2]
+                                                        r=Tuple(pqrs)[3]
+                                                        s=Tuple(pqrs)[4]=#
+
+                                                        idx_tbt=(Tuple(pqrs)[1]-1)*N^3+(Tuple(pqrs)[2]-1)*N^2+(Tuple(pqrs)[3]-1)*N+Tuple(pqrs)[4]
+
+
+                                                        G[idx_tbt, idx_U]=-del_J_tbt_U( Tuple(pqrs)[1], Tuple(pqrs)[2], Tuple(pqrs)[3],Tuple(pqrs)[4], m, k)
+
+
+                              end
+
+
+                end
+        end
+        end
+        J.=G
+        #@show J
+        #exit()
+        #return J
+
+end=#
+
+function multiprocessed_gradient_thc!(J, N, a, x, lambda_L, punishment_coeff)
+	lambda=lambda_for_THC(N, a, x)
+	Us=Us_for_THC(N, a, x, lambda_L)
+	theta=theta_for_THC(N,a,x, lambda_L)
+	
+	G=SharedArray(zeros(N^4+a^2, Int64(a*(a+1)/2+a*(N-1))))
+	
+	
+	
+	function del_J_tbt_lambda(p, q, r, s, m, n)
+	
+		derivative = Us[m,p]*Us[m,q]*Us[n,r]*Us[n,s]
+		
+		if m!=n
+			derivative+=Us[n,p]*Us[n,q]*Us[m,r]*Us[m,s]
+		end
+		
+		return derivative
+	end
+
+	function del_J_punish_lambda(μ, ν, m, n, p)
+		if m==n && μ==m && ν==n
+			return p
+		
+		elseif (μ==m && ν==n) || (μ==n && ν==m)
+			return p
+		else
+			return 0
+		end
+	end
+	
+	function del_term(p,q,r,s, m, k)
+		#term=zeros(N,N,N,N, a, N-1)
+		term=0
+		id=zeros(N, N)
+		for i in 1:N-1
+			id[i,i]=1
+		end
+		
+		
+		for n in 1:a
+			if p!=1
+				term += lambda[m,n]*(id[p-1,k]*Us[m,1]-theta[m,p-1]*theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
+			else
+				term+= lambda[m,n]*(-theta[m,k]*Us[m,1]^3)*Us[m,q]*Us[n,r]*Us[n,s]
+			end
+		end
+
+		
+		return term
+	end
+	
+	
+	
+	
+	function del_J_tbt_U(p, q, r, s, m, k)
+		return del_term(p,q,r,s, m, k) + del_term(q,p, r, s, m, k) + del_term(r, s, p, q, m, k) + del_term(s, r, p, q, m, k)
+	end
+	#Derivative wrt lambda
+	 #idx_mn=0
+	 #@time begin
+        @sync @distributed for m in 1:a
+                #idx_mn=(m-1)*a
+                
+                for n in m:a
+
+                        #idx_mn+=1
+                        if m==1
+                                idx_mn=n
+                        elseif m==2
+                                idx_mn=a+n-1
+                        else
+                                idx_mn=(m-1)*a+2m-1-Int64(m*(m+1)/2)+(n-m+1)
+                        end
+
+                        for pqrs in CartesianIndices((N,N,N,N))
+
+                                                        #=p=Tuple(pqrs)[1]
+                                                        q=Tuple(pqrs)[2]
+                                                        r=Tuple(pqrs)[3]
+                                                        s=Tuple(pqrs)[4]=#
+
+                                                        idx_tbt=(Tuple(pqrs)[1]-1)*N^3+(Tuple(pqrs)[2]-1)*N^2+(Tuple(pqrs)[3]-1)*N+Tuple(pqrs)[4]
+
+                                                        G[idx_tbt, idx_mn]=-del_J_tbt_lambda(Tuple(pqrs)[1], Tuple(pqrs)[2], Tuple(pqrs)[3],Tuple(pqrs)[4], m, n)
+
+                                end
+
+
+                        idx_punish=N^4
+                        for μ in 1:a
+                                for ν in 1:a
+
+                                        idx_punish+=1
+
+                                         idx_mn, m,n, μ, ν, idx_punish
+                                         G[idx_punish, idx_mn]=del_J_punish_lambda(μ, ν, m, n, punishment_coeff)
+                                end
+                        end
+
+                end
+        end
+
+	
+	@sync @distributed for m in 1:a
+                #idx_U=Int64(a*(a+1)/2)+(m-1)*(N-1)
+                for k in 1:N-1
+                        idx_U=Int64(a*(a+1)/2)+(m-1)*(N-1)+k
+
+
+                         for pqrs in CartesianIndices((N,N,N,N))
+
+                                                        #=p=Tuple(pqrs)[1]
+                                                        q=Tuple(pqrs)[2]
+                                                        r=Tuple(pqrs)[3]
+                                                        s=Tuple(pqrs)[4]=#
+
+                                                        idx_tbt=(Tuple(pqrs)[1]-1)*N^3+(Tuple(pqrs)[2]-1)*N^2+(Tuple(pqrs)[3]-1)*N+Tuple(pqrs)[4]
+
+
+                                                        G[idx_tbt, idx_U]=-del_J_tbt_U( Tuple(pqrs)[1], Tuple(pqrs)[2], Tuple(pqrs)[3],Tuple(pqrs)[4], m, k)
+
+
+                              end
+
+
+                end
+        end
+        #end
+        J.=G
+        #@show J
+        #exit()
+        #return J
+
 end
 
 		
 #Numerical gradient for THC
+#@everywhere begin
+function thc_cost_vec(F::F_OP, x, p, N, a, lambda_L)
+	Fx=THC_tb_x_to_F_OP(x, N, a,lambda_L,F.spin_orb)  
+	output=zeros(F.N^4+a^2)
+	idx=0
+	begin
+	for p in 1:N
+		for q in 1:N
+			for r in 1:N
+				for s in 1:N
+					idx+=1
+					output[idx]=F.mbts[3][p,q,r,s]-Fx.mbts[3][p,q,r,s]
+				end
+			end
+		end
+	end
+	end
+	
+	lambda=lambda_for_THC(N,a,x)
+	for i in 1:a
+		for j in 1:a
+			idx+=1
+			output[idx]=p*lambda[i,j]
+		end
+	end
+			
+	return output
+end
 
-function numeric_gradient_thc(F::F_OP,N,a,x, lambda_L, p)
+
+function numeric_gradient_thc!(J,F::F_OP,N,a,x, lambda_L, p)
+	
 	dx=0.001
-	J=zeros(N^4+a^2, length(x))
+	#J=zeros(N^4+a^2, length(x))
 	#cost_vec=thc_cost_vec(F, x, p, N, a, lambda_L)	
-	x1=zeros(length(x))
-	x2=zeros(length(x))
+	G=SharedArray(zeros(N^4+a^2, length(x)))
+	#addprocs(12)
+	#@show nprocs()
 	for i in 1:length(x)
+		x1=zeros(length(x))
+		x2=zeros(length(x))
 		x1.=x
 		x1[i]=x[i]+dx
 		x2.=x
 		x2[i]=x[i]-dx
-		J[:,i].=(thc_cost_vec(F, x1, p, N, a, lambda_L)-thc_cost_vec(F, x2, p, N, a, lambda_L))/(2dx)
+		
+		#@time (thc_cost_vec(F, x1, p, N, a, lambda_L)-thc_cost_vec(F, x2, p, N, a, lambda_L))/(2dx)
+		G[:,i].=(thc_cost_vec(F, x1, p, N, a, lambda_L)-thc_cost_vec(F, x2, p, N, a, lambda_L))/(2dx)
+		#sleep(1)
+		
 	end
-	@show J
-	exit()
-	return J
+	#end
+	J.=G
+	#@show J
+	#exit()
+	#return J
 end
+#end
 		
 							
 			

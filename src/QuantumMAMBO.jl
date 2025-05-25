@@ -1,6 +1,8 @@
 module QuantumMAMBO
-	using Distributed, LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse, LeastSquaresOptim
-
+	using Distributed
+	#addprocs(12)
+	#@everywhere begin
+	using LinearAlgebra, Einsum, Optim, SharedArrays, JuMP, Arpack, SparseArrays, LuxurySparse, LeastSquaresOptim, FLoops, BenchmarkTools
 	src_dir = @__DIR__
 	UTILS_dir = src_dir * "/UTILS/"
 	if !(@isdefined CONFIG_LOADED) #only include config file one time so constants can be later redefined
@@ -33,6 +35,8 @@ module QuantumMAMBO
 	include(UTILS_dir * "lanczos.jl")
 	include(UTILS_dir * "estimates.jl")
 	include(UTILS_dir * "cp4.jl")
+	include(UTILS_dir * "fcidump.jl")
+	#include(UTILS_dir * "of_thc.jl")
 
 	if @isdefined myid
 		include(UTILS_dir * "parallel.jl")
@@ -44,5 +48,6 @@ module QuantumMAMBO
 	if !(@isdefined SAVING_LOADED) && SAVING #only include saving file one time if saving option is on
 		include(UTILS_dir * "saving.jl")
 		global SAVING_LOADED = true
+	#end
 	end
 end

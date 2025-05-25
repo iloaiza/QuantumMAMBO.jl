@@ -30,7 +30,7 @@ function mbt_schmidt(mbt :: Array{Float64}; debug=false)
 	return U,S,V
 end
 
-function r_acos(x, tiny = 1e-7)
+function r_acos(x, tiny = 1e-6)
 	#returns acos(x), if abs(x) is close to ±1 by tiny rounds x to ±1
 	if abs(x) > 1 + tiny
 		error("acos not defined for x=$x")
@@ -61,7 +61,7 @@ function r_asin(x, tiny = 1e-7)
 end
 
 function majorana_coefs_to_unitary(cns, N = length(cns); tiny = 1e-10, debug=false)
-	#obtains angles for transforming γ_c⃗ = ∑_n c_n γ_n into MTD_CP4 angles, where ∑_n |cns|ˆ2 = 1
+	#obtains angles for transforming γ_c⃗ = ∑_n c_n γ_n into CP4 angles, where ∑_n |cns|ˆ2 = 1
 	if abs(1-sum(abs2.(cns))) > tiny
 		error("Trying to convert Majorana coeffs into angles, not normalized!")
 	end
@@ -168,7 +168,7 @@ function iterative_schmidt(tbt :: Array{Float64, 4}; tol=1e-6, debug=false, retu
 
 					Us = (u1,u2,u3,u4)
 
-					frag = F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, false, s1*s2*s3, true)
+					frag = F_FRAG(4, Us, CP4(), cartan_m1(), N, false, s1*s2*s3, true)
 					push!(FRAGS, frag)
 				end
 			end
