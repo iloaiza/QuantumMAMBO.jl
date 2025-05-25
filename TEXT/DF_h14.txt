@@ -1,0 +1,9 @@
+Loading molecular data from /home/nacho/MEGAsync/Codes/QuantumMAMBO.jl/src/UTILS/../../SAVED/h14.h5
+L = 39
+Lxi = 378
+givens_beta = 14
+μ = 8
+(T, Q, R) = (12120, 326, 0)
+mol_name = "h14"
+λ * T = 464205.6944783411
+Q = 327
