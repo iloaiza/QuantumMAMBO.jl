@@ -1,3 +1,22 @@
+function L1_TB_cost(F::F_OP)
+	if F.filled[3]
+		return sum(abs.(F.mbts[3]))
+	else
+		return 0
+	end
+end
+
+function L2_TB_cost(F::F_OP)
+	if F.filled[3]
+		return sum(abs2.(F.mbts[3]))
+	else
+		return 0
+	end
+end
+
+
+
+
 function L2_TB_cost(F1 :: F_OP, F2 :: F_OP)
 	#return L2-norm of two-body tensor difference
 	if F1.Nbods < 2 || F2.Nbods < 2

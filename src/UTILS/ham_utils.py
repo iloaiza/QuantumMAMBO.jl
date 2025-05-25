@@ -92,7 +92,7 @@ def system_from_xyz(xyz, ferm = True, basis='sto3g', n_elec = False, spin=0):
             return ham, mol.n_electrons
 
 
-def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0, return_mf = False):
+def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0):
     mol = gto.M()
     mol.atom = xyz
     mol.basis = basis
@@ -121,10 +121,7 @@ def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0, return_mf = Fal
     for i in range(4):
        g_fb = np.tensordot(g_fb, fb_mos, axes=1).transpose(3, 0, 1, 2)
     
-    if return_mf == False:
-        return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron
-    else:
-        return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron, mf
+    return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron
 
 
 def xyz_to_type(xyz):
@@ -167,6 +164,40 @@ def chooseType(typeHam, geometries):
             ['H', [0, 0, 2*geometries]],
             ['H', [0, 0, 3*geometries]]
         ]
+    elif typeHam == 'h6_chain':
+        molData = [
+            ['H', [0, 0, 0]],
+            ['H', [0, 0, geometries]],
+            ['H', [0, 0, 2*geometries]],
+            ['H', [0, 0, 3*geometries]],
+            ['H', [0, 0, 4*geometries]],
+            ['H', [0, 0, 5*geometries]]
+        ]
+    elif typeHam == 'h8_chain':
+        molData = [
+            ['H', [0, 0, 0]],
+            ['H', [0, 0, geometries]],
+            ['H', [0, 0, 2*geometries]],
+            ['H', [0, 0, 3*geometries]],
+            ['H', [0, 0, 4*geometries]],
+            ['H', [0, 0, 5*geometries]],
+            ['H', [0, 0, 6*geometries]],
+            ['H', [0, 0, 7*geometries]]
+        ]
+    elif typeHam == 'h10_chain':
+        geometries=1.4
+        molData = [
+            ['H', [0, 0, 0]],
+            ['H', [0, 0, geometries]],
+            ['H', [0, 0, 2*geometries]],
+            ['H', [0, 0, 3*geometries]],
+            ['H', [0, 0, 4*geometries]],
+            ['H', [0, 0, 5*geometries]],
+            ['H', [0, 0, 6*geometries]],
+            ['H', [0, 0, 7*geometries]],
+            ['H', [0, 0, 8*geometries]],
+            ['H', [0, 0, 9*geometries]]
+        ]
     elif typeHam == 'n2':
         molData = [
             ['N', [0, 0, 0]],
@@ -188,6 +219,11 @@ def chooseType(typeHam, geometries):
             ['H', [-xDistance, yDistance, 0]],
             ['H', [xDistance, yDistance, 0]]
         ]
+    elif typeHam == 'n2':
+        molData = [
+            ['N', [0, 0, 0]],
+            ['N', [0, 0, geometries]]
+        ]
     elif typeHam == 'beh2':
         molData = [
             ['Be', [0, 0, 0]],
@@ -208,7 +244,7 @@ def chooseType(typeHam, geometries):
         ]
     elif typeHam == 'nh3':
     # Is there a more direct way of making three vectors with specific mutual angle?
-        bondAngle = 107
+        bondAngle = 104
         bondAngle = math.radians(bondAngle)
         cos = math.cos(bondAngle)
         sin = math.sin(bondAngle)
