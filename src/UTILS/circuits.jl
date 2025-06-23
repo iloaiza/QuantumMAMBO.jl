@@ -4,7 +4,7 @@ circuits = pyimport("circuits")
 cirq = pyimport("cirq")
 cft = pyimport("cirq_ft")
 
-function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5)
+function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5, verbose = true, print_circs = false)
 	#=
 	Creates Pauli (or Sparse) LCU oracles
 
@@ -37,6 +37,20 @@ function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5)
 
 	prep_circ = circuits.recursive_circuit(prep)
 
+	if verbose
+		@show cft.t_complexity(prep)
+		@show cft.t_complexity(sel)
+	end
+
+	if print_circs
+		println("Printing circuits:\n PREPARE:")
+		println(prep_circ)
+		println("\n\n")
+		println("\n SELECT:")
+		println(sel_circ)
+		println("\n\n")
+	end
+
 	println("Warning, oracle circuit does not implement inverse of PREP, good for gate count but incorrect circuit")
 	tot_circ = prep_circ + sel_circ + prep_circ
 
@@ -47,7 +61,7 @@ function Pauli_circuit(H :: F_OP; epsilon = 1e-5, trunc_thresh = 1e-5)
 	return t_count, tot_qubits
 end
 
-function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4)
+function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4, verbose=true, print_circs=false)
 	#=
 	Creates anticommputing (AC) LCU oracles
 
@@ -86,6 +100,23 @@ function AC_circuit(H :: F_OP; epsilon = 1e-5, givens_eps = 1e-4)
 	n_reg = prep.n_register
 
 	sel = circuits.Select_AC(ac_int_vecs, ac_coeffs, n_reg = n_reg)
+
+	if verbose
+		@show cft.t_complexity(prep)
+		@show length(AC_ops)
+		@show cft.t_complexity(sel)
+	end
+
+	if print_circs
+		println("Printing circuits:\n PREPARE:")
+		prep_circ = circuits.recursive_circuit(prep)
+		println(prep_circ)
+		println("\n\n")
+		println("\n SELECT:")
+		sel_circ = circuits.to_circuit(sel)
+		println(sel_circ)
+		println("\n\n")
+	end
 
 	t_count = 2 * cft.t_complexity(prep) + cft.t_complexity(sel)
 
