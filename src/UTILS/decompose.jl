@@ -108,7 +108,7 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_
 		if do_grad
 			return optimize(cost, grad!, x0, BFGS())
 		else 
-			return optimize(cost, x0,BFGS())
+			return optimize(cost, x0, BFGS())
 		end
 	else
 		if do_grad
