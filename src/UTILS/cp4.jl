@@ -134,7 +134,7 @@ end
 
 function CP4_decomposition(tsr, rank_max; tol=ϵ, verbose=false, ini_rank = 1, rank_hop = 1, SAVELOAD=false, SAVENAME=DATAFOLDER*"CP4.h5")
 	if verbose
-		println("Starting PARAFAC routine")
+		println("Starting CP4 routine")
 	end
 
 	N = size(tsr)[1]
@@ -142,17 +142,17 @@ function CP4_decomposition(tsr, rank_max; tol=ϵ, verbose=false, ini_rank = 1, r
 
 	if SAVELOAD
 		fid = h5open(SAVENAME, "cw")
-		if "PARAFAC" in keys(fid)
-			PARAFAC_group = fid["PARAFAC"]
-			x = read(PARAFAC_group, "x")
+		if "CP4" in keys(fid)
+			CP4_group = fid["CP4"]
+			x = read(CP4_group, "x")
 			x_len, α_curr = size(x)
-			println("Found saved x under filename $SAVENAME for PARAFAC decomposition, loaded $α_curr fragments...")
+			println("Found saved x under filename $SAVENAME for CP4 decomposition, loaded $α_curr fragments...")
 			if x_len != 4N+1
-				error("Trying to load from $SAVENAME, saved x has wrong dimensions for PARAFAC parameters of H!")
+				error("Trying to load from $SAVENAME, saved x has wrong dimensions for CP4 parameters of H!")
 			end
 			α_ini = α_curr + 1
 			for i in 1:α_curr
-				frag = MTD_PARAFAC_x_to_F_FRAG(x[:,i], N, false)
+				frag = MTD_CP4_x_to_F_FRAG(x[:,i], N, false)
 				push!(FRAGS, frag)
 			end
 		end
@@ -178,16 +178,16 @@ function CP4_decomposition(tsr, rank_max; tol=ϵ, verbose=false, ini_rank = 1, r
 				x_save[end,i] = Ω[i]
 			end
 
-			Us = tuple([single_orbital_rotation(N, U_ARR[:,α]) for α in 1:4]...)
-			frag = F_FRAG(4, Us, MTD_PARAFAC(), cartan_m1(), N, false, Ω[i], true)
+			Us = tuple([majorana_coefs_to_unitary(U_ARR[:,α], N)  for α in 1:4]...)
+			frag = F_FRAG(4, Us, MTD_CP4(), cartan_m1(), N, false, Ω[i], true)
 
 			push!(FRAGS, frag)
 		end
 
 		if SAVELOAD
-			create_group(fid, "PARAFAC")
-			PARAFAC_group = fid["PARAFAC"]
-			PARAFAC_group["x"] = x_save
+			create_group(fid, "CP4")
+			CP4_group = fid["CP4"]
+			CP4_group["x"] = x_save
 			close(fid)
 		end
 	end
@@ -202,6 +202,6 @@ function CP4_decomposition(tsr, rank_max; tol=ϵ, verbose=false, ini_rank = 1, r
 	return FRAGS
 end
 
-function CP4_decomposition(F :: F_OP, rank_max; tol=ϵ, verbose=false, rank_hop = 1, SAVELOAD=false, SAVENAME=DATAFOLDER*"CP4.h5")
-	return CP4_decomposition(F.mbts[3], rank_max, tol=tol, verbose=verbose, rank_hop = rank_hop, SAVELOAD=SAVELOAD, SAVENAME=SAVENAME)
+function CP4_decomposition(F :: F_OP, rank_max; kwargs...)
+	return CP4_decomposition(F.mbts[3], rank_max; kwargs...)
 end
