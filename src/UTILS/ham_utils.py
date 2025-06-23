@@ -92,39 +92,50 @@ def system_from_xyz(xyz, ferm = True, basis='sto3g', n_elec = False, spin=0):
             return ham, mol.n_electrons
 
 
-def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0, return_mf = False):
+def localized_ham_from_xyz(xyz, basis='sto3g', n_elec='true', spin=0, charge=0, rhf=False, localize=True):
     mol = gto.M()
     mol.atom = xyz
     mol.basis = basis
     mol.spin = spin
     mol.charge = charge
     mol.build()
-    mf = scf.RHF(mol)
+    if mol.spin:
+        if rhf:
+            mf=scf.ROHF(mol)
+        else:
+            mf = scf.UHF(mol)
+    else:
+        mf=scf.RHF(mol)
+    
     mf.run()
-    hf_mos = mf.mo_coeff #defines canonical MOs (CMOs), corresponds to C matrix: CMOs = C * AOs
-    mo = lo.boys.Boys(mol, hf_mos)
-    fb_mos = mo.kernel() #C*U, C = AO-to-CMOs matrix, U = CMOs to localized unitary
-
+    mo_coeffs = mf.mo_coeff #defines canonical MOs (CMOs), corresponds to C matrix: CMOs = C * AOs
+    
     h1e = mol.intor("int1e_kin") + mol.intor("int1e_nuc")
     h2e = mol.intor("int2e", aosym = 's1')
     nuclear_repulsion = mol.energy_nuc()
     
     N = np.shape(h1e)[0]
 
-    h_hf = hf_mos.T @ h1e @ hf_mos
-    g_hf = np.copy(h2e)
-    for i in range(4):
-       g_hf = np.tensordot(g_hf, hf_mos, axes=1).transpose(3, 0, 1, 2)
+    if localize:
+        mo = lo.boys.Boys(mol, hf_mos)
+        mo_coeffs = mo.kernel()
     
-    h_fb = fb_mos.T @ h1e @ fb_mos
-    g_fb = np.copy(h2e)
-    for i in range(4):
-       g_fb = np.tensordot(g_fb, fb_mos, axes=1).transpose(3, 0, 1, 2)
-    
-    if return_mf == False:
-        return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron
+    if mol.spin and not rhf:
+        obt = np.zeros((2,N,N))
+        obt[0] = mo_coeffs[0].T @ h1e @ mo_coeffs[0]
+        obt[1] = mo_coeffs[1].T @ h1e @ mo_coeffs[1]
+        
+        tbt = np.zeros((4,N,N,N,N))
+        for sigma in range(2):
+            for tau in range(2):
+                tbt[2*sigma+tau]=np.einsum('ijkl, ia, jb, kc, ld -> abcd' , h2e, mo_coeffs[sigma,:,:], mo_coeffs[sigma,:,:], mo_coeffs[tau,:,:], mo_coeffs[tau,:,:])
+        
+        return nuclear_repulsion, obt, tbt, mol.nelectron
     else:
-        return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron, mf
+        obt = mo_coeffs.T @ h1e @ mo_coeffs
+        tbt = np.einsum('ijkl, ia, jb, kc, ld -> abcd' , h2e, mo_coeffs, mo_coeffs, mo_coeffs, mo_coeffs)
+        
+        return nuclear_repulsion, obt, tbt, mol.nelectron
 
 
 def xyz_to_type(xyz):
@@ -188,6 +199,11 @@ def chooseType(typeHam, geometries):
             ['H', [-xDistance, yDistance, 0]],
             ['H', [xDistance, yDistance, 0]]
         ]
+    elif typeHam == 'n2':
+        molData = [
+            ['N', [0, 0, 0]],
+            ['N', [0, 0, geometries]]
+        ]
     elif typeHam == 'beh2':
         molData = [
             ['Be', [0, 0, 0]],
@@ -222,6 +238,49 @@ def chooseType(typeHam, geometries):
             ['H', [thirdxRatio * geometries, thirdyRatio * geometries, cos * geometries]], 
             ['N', [0, 0, 0]], 
         ]
+    elif typeHam=='c2h2':
+        molData=[
+        ['H', [0,0,0]],
+        ['C', [0,0,1.06]],
+        ['C', [0,0,1.203+1.06]],
+        ['H', [0,0, 2*1.06+1.203]]
+    ]
+    elif typeHam=="cr":
+        molData=[
+        ['Cr',[0,0,0]]
+    ]
+    elif typeHam=="v":
+        molData=[
+        ['V',[0,0,0]]
+    ]
+    elif typeHam=="Ti":
+        molData=[
+        ['Ti',[0,0,0]]
+    ]
+    elif typeHam=="ch3":
+        molData=[
+        ['C',[0,0,0]],
+        ['H',[1,0,0]],
+        ['H',[math.cos(2*math.pi/3),math.sin(2*math.pi/3),0]],
+        ['H',[math.cos(4*math.pi/3),math.sin(4*math.pi/3),0]]
+    ]
+    elif typeHam=="ch2":
+        molData=[
+        ['C',[0,0,0]],
+        ['H',[1,0,0]],
+        ['H',[math.cos(2*math.pi/3),math.sin(2*math.pi/3),0]]
+    ]
+    elif typeHam=='TiN':
+        moldata=['Ti 0.0 0.0 0.0', 'N 0.0 0.0 3.12256']
+        molData=xyz_to_type(moldata)
+        
+    elif typeHam=='TiH':
+        moldata=['Ti 0.0 0.0 0.0', 'H 0.0 0.0 1.77542']
+        molData=xyz_to_type(moldata)
+         
+      
+    
+        
     else:
         raise(ValueError(typeHam, 'Unknown type of hamiltonian given'))
 

@@ -14,6 +14,22 @@ function symmetry_builder(H :: F_OP)
 
 	return F_OP(([0],Ne_obt), H.spin_orb), F_OP(([0],[0],Ne2_tbt), H.spin_orb)
 end
+function symmetry_builder(N::Int64)
+	#returns Ne and Neˆ2, both symmetries can be represented in orbitals (so no need for spin-orbitals)
+	Ne_obt = zeros(N, N)
+	for i in 1:N
+		Ne_obt[i,i] = 1
+	end
+
+	Ne2_tbt = zeros(N, N, N, N)
+	for i in 1:N
+		for j in 1:N
+			Ne2_tbt[i,i,j,j] = 1
+		end
+	end
+
+	return F_OP(([0],Ne_obt)), F_OP(([0],[0],Ne2_tbt))
+end
 
 function Ne_builder(N :: Int64, spin_orb=true)
 	#returns Ne and Neˆ2, both symmetries can be represented in orbitals (so no need for spin-orbitals)
@@ -136,4 +152,3 @@ function symmetry_treatment(H :: F_OP; verbose=true, SAVENAME=DATAFOLDER*"SYM.h5
 
 	return H_sym - obt_corr, [x2, x1]
 end
-

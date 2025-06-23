@@ -39,7 +39,7 @@ function F_OP(mbts :: Tuple, spin_orb=false)
 	for i in 1:Nbods + 1
 		if mbts[i] != [0]
 			filled[i] = true
-			N = size(mbts[i])[1]
+			N = size(mbts[i])[end]
 		end
 	end
 	

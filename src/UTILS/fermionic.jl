@@ -459,7 +459,14 @@ function ob_correction(F :: F_OP; return_op=false)
 	if F.spin_orb
 		obt = sum([F.mbts[3][:,:,r,r] for r in 1:F.N])
 	else
-		obt = 2*sum([F.mbts[3][:,:,r,r] for r in 1:F.N])
+		if size(F.mbts[2],1)==size(F.mbts[3],1)
+			obt=2*sum([F.mbts[3][:,:,r,r] for r in 1:F.N])
+		else
+			obt=zeros(2,F.N,F.N)
+			
+			obt[1,:,:] .= sum([F.mbts[3][1,:,:,r,r] for r in 1:F.N])+sum([F.mbts[3][2,:,:,r,r] for r in 1:F.N])
+			obt[2,:,:] .= sum([F.mbts[3][3,:,:,r,r] for r in 1:F.N])+sum([F.mbts[3][4,:,:,r,r] for r in 1:F.N])
+		end
 	end
 	
 	if return_op
@@ -562,7 +569,16 @@ function F_OP_to_eri(F :: F_OP)
 end
 
 function eri_to_F_OP(obt, tbt, hconst :: Array = [0]; spin_orb=false)
-	#transform electronic repulsion integrals into fermionic operator
+	#Transform electronic repulsion integrals into fermionic operator
+	#Original form assumed to be:
+	# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+	#Internally stored as:
+	# H = E_0 + (h_ij-0.5*sum_k[g_ikkj]) a†_i a_j + 0.5*g_ijkl a†_i a_j a†_k a_l 
+	#   = E_0 + H_ij a†_i a_j + G_ijkl a†_i a_j a†_k a_l 
+	# where E_0 = hconst, h_ij = obt, g_ijkl = tbt,
+	# H_ij = obt - 0.5*sum_k[tbt[:,k,k,:]], G_ijkl = 0.5*tbt,
+	# and i,j,k,l refer to spatial orbitals if spin_orb = false, 
+	# and spin-orbitals if spin_orb = true
 	N = size(obt)[1]
 
 	mbts = (hconst, obt - sum([0.5*tbt[:,k,k,:] for k in 1:N]), 0.5*tbt)
@@ -571,8 +587,18 @@ function eri_to_F_OP(obt, tbt, hconst :: Array = [0]; spin_orb=false)
 	return F_OP(mbts, spin_orb)
 end
 
-function eri_to_F_OP(obt, tbt, hconst :: Number)
-	return eri_to_F_OP(obt, tbt, [hconst])
+function eri_to_F_OP(obt, tbt, hconst :: Number; spin_orb=false)
+	#Transform electronic repulsion integrals into fermionic operator
+	#Original form assumed to be:
+	# H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+	#Internally stored as:
+	# H = E_0 + (h_ij-0.5*sum_k[g_ikkj]) a†_i a_j + 0.5*g_ijkl a†_i a_j a†_k a_l 
+	#   = E_0 + H_ij a†_i a_j + G_ijkl a†_i a_j a†_k a_l 
+	# where E_0 = hconst, h_ij = obt, g_ijkl = tbt,
+	# H_ij = obt - 0.5*sum_k[tbt[:,k,k,:]], G_ijkl = 0.5*tbt,
+	# and i,j,k,l refer to spatial orbitals if spin_orb = false, 
+	# and spin-orbitals if spin_orb = true
+	return eri_to_F_OP(obt, tbt, [hconst],spin_orb=spin_orb)
 end
 
 function to_CSA_SD(F :: F_FRAG)
@@ -599,5 +625,76 @@ function to_CSA_SD(F :: F_FRAG)
 	end
 end
 
+function F_OP_converter(F::F_OP)
+	obt=zeros(2*F.N,2*F.N)
+	tbt=zeros(2*F.N,2*F.N,2*F.N,2*F.N)
+	for sigma in 1:2
+		for i in 1:F.N
+			for j in 1:F.N
+				obt[2*i-mod(sigma,2), 2*j-mod(sigma,2)]=F.mbts[2][sigma,i,j]
+			end
+		end
+	end
+	for sigma in 1:4
+		i=0
+		j=0
+		if sigma<=2
+			i=1
+		end
+		if sigma==1 || sigma==3
+			j=1
+		end
+		for p in 1:F.N
+			for q in 1:F.N
+				for r in 1:F.N
+					for s in 1:F.N
+						tbt[2*p-i, 2*q-i,2*r-j,2*s-j]=F.mbts[3][sigma,p,q,r,s]
+					end
+				end
+			end
+		end
+	end
+	return F_OP((F.mbts[1],obt,tbt))
+end
 
+function F_OP_compress(F::F_OP)
+	N=div(F.N,2)
+	obt=zeros(2,N,N)
+	tbt=zeros(4,N,N,N,N)
+	
+	align=[1,4]
+	anti=[2,3]
+	
+	for i in 1:F.N
+		for j in 1:F.N
+			sigma=2-mod(i,2)
+			if sigma==2-mod(j,2)
+				obt[sigma,ceil(Int64,i/2),ceil(Int64,j/2)]=F.mbts[2][i,j]
+			end
+		end
+	end
+	for p in 1:F.N
+		for q in 1:F.N
+			for r in 1:F.N
+				for s in 1:F.N
+					sigma=2-mod(p,2)
+					tau=2-mod(r,2)
+					if sigma==tau
+						if sigma==2-mod(q,2) && tau==2-mod(s,2)
+							tbt[align[sigma],ceil(Int64,p/2),ceil(Int64,q/2),ceil(Int64,r/2),ceil(Int64,s/2)]=F.mbts[3][p,q,r,s]
+						end
+					else
+						if sigma==2-mod(q,2) && tau==2-mod(s,2)
+							tbt[anti[sigma],ceil(Int64,p/2),ceil(Int64,q/2),ceil(Int64,r/2),ceil(Int64,s/2)]=F.mbts[3][p,q,r,s]
+						end
+					end
+				end
+			end
+		end
+	end
+	
+	
+	return F_OP((F.mbts[1],obt,tbt))
+end
+	
 

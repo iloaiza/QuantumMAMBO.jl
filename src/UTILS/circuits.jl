@@ -326,4 +326,3 @@ function diag_els(A)
 
 	return Adiag
 end
-

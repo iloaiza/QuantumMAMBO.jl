@@ -1,4 +1,6 @@
-function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA.h5", kwargs...)
+using Optim
+
+function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA.h5")
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1:2] .= false #only optimize 2-body tensor
 
@@ -18,19 +20,21 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=fa
 		fid = h5open(SAVENAME, "cw")
 		if "CSA" in keys(fid)
 			CSA_group = fid["CSA"]
-			x = read(CSA_group, "x")
-			x_len, α_curr = size(x)
-			println("Found saved x under filename $SAVENAME for CSA decomposition, loaded $α_curr fragments...")
-			if x_len != tot_L
-				error("Trying to load from $SAVENAME, saved x has wrong dimensions for CSA parameters of H!")
+			if haskey(CSA_group,"x")
+				x = read(CSA_group, "x")
+				x_len, α_curr = size(x)
+				println("Found saved x under filename $SAVENAME for CSA decomposition, loaded $α_curr fragments...")
+				if x_len != tot_L
+					error("Trying to load from $SAVENAME, saved x has wrong dimensions for CSA parameters of H!")
+				end
+				α_ini = α_curr + 1
+				for i in 1:α_curr
+					frag = CSA_x_to_F_FRAG(x[:,i], H.N, H.spin_orb, cartan_L)
+					push!(Farr, frag)
+					F_rem = F_rem - to_OP(frag)
+				end
+				X[:,1:α_curr] = x
 			end
-			α_ini = α_curr + 1
-			for i in 1:α_curr
-				frag = CSA_x_to_F_FRAG(x[:,i], H.N, H.spin_orb, cartan_L)
-				push!(Farr, frag)
-				F_rem = F_rem - to_OP(frag)
-			end
-			X[:,1:α_curr] = x
 		else
 			create_group(fid, "CSA")
 			CSA_group = fid["CSA"]
@@ -38,6 +42,7 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=fa
 	end
 
 	curr_cost = L2_partial_cost(F_rem)
+	
 	if verbose
 		println("Initial L2 cost is $curr_cost")
 	end
@@ -46,10 +51,10 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=fa
 		α_curr += 1
 		#x = [λ..., θ...] for cartan(λ) and U(θ)
 		if verbose
-			@time sol = CSA_greedy_step(F_rem; kwargs...)
+			@time sol = CSA_greedy_step(F_rem)
 			println("Current L2 cost after $α_curr fragments is $(sol.minimum)")
 		else
-			sol = CSA_greedy_step(F_rem; kwargs...)
+			sol = CSA_greedy_step(F_rem)
 		end
 		frag = CSA_x_to_F_FRAG(sol.minimizer, H.N, H.spin_orb, cartan_L)
 		push!(Farr, frag)
@@ -79,7 +84,7 @@ function CSA_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=fa
 	return Farr
 end
 
-function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_PRINT, do_grad=GRAD_for_CSA)
+function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_PRINT,do_grad=GRAD_for_CSA)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 
@@ -106,20 +111,20 @@ function CSA_greedy_step(F :: F_OP, do_svd = SVD_for_CSA, print = DECOMPOSITION_
 
 	if print == false
 		if do_grad
-			return optimize(cost, grad!, x0, BFGS())
+			return Optim.optimize(cost, grad!, x0, BFGS())
 		else 
-			return optimize(cost, x0, BFGS())
+			return Optim.optimize(cost, x0,BFGS())
 		end
 	else
 		if do_grad
-			return optimize(cost, grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+			return Optim.optimize(cost, grad!, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
 		else
-			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+			return Optim.optimize(cost, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
 		end
 	end
 end
 
-function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA_SD.h5", kwargs...)
+function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose=false, SAVELOAD=SAVING, SAVENAME=DATAFOLDER*"CSA_SD.h5")
 	#same as CSA decomposition, but includes optimization of one-body term
 	F_rem = copy(H) #fermionic operator, tracks remainder after removing found greedy fragments
 	F_rem.filled[1] = false #only optimize 1-body and 2-body tensors
@@ -172,10 +177,10 @@ function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose
 		α_curr += 1
 		#x = [λ..., θ...] for cartan(λ) and U(θ)
 		if verbose
-			@time sol = CSA_SD_greedy_step(F_rem; kwargs...)
+			@time sol = CSA_SD_greedy_step(F_rem)
 			println("Current L2 cost after $α_curr fragments is $(sol.minimum)")
 		else
-			sol = CSA_SD_greedy_step(F_rem; kwargs...)
+			sol = CSA_SD_greedy_step(F_rem)
 		end
 		frag = CSA_SD_x_to_F_FRAG(sol.minimizer, H.N, H.spin_orb, cartan_L)
 		push!(Farr, frag)
@@ -204,7 +209,7 @@ function CSA_SD_greedy_decomposition(H :: F_OP, α_max; decomp_tol = ϵ, verbose
 	return Farr
 end
 
-function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print = DECOMPOSITION_PRINT, do_grad = GRAD_for_CSA_SD)
+function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print=DECOMPOSITION_PRINT,do_grad=GRAD_for_CSA_SD)
 	cartan_L = cartan_2b_num_params(F.N)
 	unitary_L = real_orbital_rotation_num_params(F.N)
 
@@ -232,15 +237,15 @@ function CSA_SD_greedy_step(F :: F_OP, do_svd = SVD_for_CSA_SD, print = DECOMPOS
 
 	if print == false
 		if do_grad
-			return optimize(cost, SD_grad!, x0, BFGS())
+			return Optim.optimize(cost, SD_grad!, x0, BFGS())
 		else
-			return optimize(cost, x0, BFGS())
+			return Optim.optimize(cost, x0, BFGS())
 		end
 	else
 		if do_grad
-			return optimize(cost, SD_grad!, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+			return Optim.optimize(cost, SD_grad!, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
 		else		
-			return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=true))
+			return Optim.optimize(cost, x0, BFGS(), Optim.Options(show_every=1, show_trace=true, extended_trace=true))
 		end
 	end
 end
@@ -264,7 +269,7 @@ function THC_fixed_decomposition(Ftarg :: F_OP, α, θ0 = 2π*rand(Ftarg.N-1, α
 		return L2_partial_cost(Ftarg, F)
 	end
 
-	return optimize(cost, x0, BFGS())
+	return Optim.optimize(cost, x0, BFGS())
 end
 
 function THC_iterative_decomposition(H :: F_OP, α_max, decomp_tol = ϵ)
@@ -436,6 +441,7 @@ function DF_based_greedy(F :: F_OP)
 end
 
 
+
 function MTD_CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
 
 	function cost(x)
@@ -450,9 +456,9 @@ function MTD_CP4_greedy_step(F :: F_OP; x0 = false, print = DECOMPOSITION_PRINT)
 	end
 
 	if print == false
-		return optimize(cost, x0, BFGS())
+		return Optim.optimize(cost, x0, BFGS())
 	else
-		return optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=false))
+		return Optim.optimize(cost, x0, BFGS(), Optim.Options(show_every=print, show_trace=true, extended_trace=false))
 	end
 end
 
