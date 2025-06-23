@@ -237,16 +237,22 @@ class Prepare_Sparse_SOTA(cft.algos.select_and_prepare.PrepareOracle):
                         elif i == k and j == l:
                             zeta_2[i,j,k,l] = 1
                     
-                    g_trunc[i,j,k,l] *= zeta_1[i,j] * zeta_1[k,l] * zeta_2[i,j,k,l]
-                    if g_trunc[i,j,k,l] != 0:
-                        coeffs += [g_trunc[i,j,k,l]]
-                        idx_list += [(i,j,k,l,1)]
+        for i in range(N):
+            for j in range(N):
+                for k in range(N):
+                    for l in range(N):
+                        g_trunc[i,j,k,l] *= zeta_1[i,j] * zeta_1[k,l] * zeta_2[i,j,k,l]
+                        if g_trunc[i,j,k,l] != 0:
+                            coeffs += [g_trunc[i,j,k,l]]
+                            idx_list += [(i,j,k,l,1)]
 
         for i in range(N):
             for j in range(N):
                 if h_tilde[i,j] != 0:
                     coeffs += [h_tilde[i,j]]
                     idx_list += [(i,j,0,0,0)]
+
+        print("\n\n Number of non-zero coeffs for Pauli sparse loading = {}\n\n".format(len(coeffs)))
 
         num_alpha = len(coeffs)
         idx_arr = np.zeros((num_alpha, 5))
