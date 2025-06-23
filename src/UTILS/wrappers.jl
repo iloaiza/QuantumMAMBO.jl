@@ -181,6 +181,82 @@ function LOCALIZED_XYZ_HAM(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5",
 	return Hhf, Hfb, η
 end
 
+function LOCALIZED_XYZ_HAM_MF(xyz_string, FILENAME = DATAFOLDER * mol_name * ".h5", DO_SAVE = SAVING; kwargs...)
+	if DO_SAVE && isfile(FILENAME*".h5")
+		fid = h5open(FILENAME*".h5", "cw")
+		if haskey(fid, "MOLECULAR_DATA")
+			println("Loading molecular data from $FILENAME.h5")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			h_const = read(MOL_DATA,"h_const")
+			obt_hf = read(MOL_DATA,"obt_hf")
+			tbt_hf = read(MOL_DATA,"tbt_hf")
+			η = read(MOL_DATA,"eta")
+			obt_fb = read(MOL_DATA,"obt_fb")
+			tbt_fb = read(MOL_DATA,"tbt_fb")
+			close(fid)
+			Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+			Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+		else
+			h_const, obt_hf, tbt_hf, obt_fb, tbt_fb, η, mf = ham.localized_ham_from_xyz(xyz_string, return_mf = true; kwargs...)
+			h_const = pyconvert(Float64, h_const)
+			obt_hf = pyconvert(Array{Float64}, obt_hf)
+			tbt_hf = pyconvert(Array{Float64}, tbt_hf)
+			obt_fb = pyconvert(Array{Float64}, obt_fb)
+			tbt_fb = pyconvert(Array{Float64}, tbt_fb)
+			η = pyconvert(Int64, η)
+			Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+			Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists. Overwriting and migrating old file..."
+				close(fid)
+				oldfile(FILENAME*".h5")
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  Hhf.mbts[1]
+			MOL_DATA["obt_hf"] =  Hhf.mbts[2]
+			MOL_DATA["tbt_hf"] =  Hhf.mbts[3]
+			MOL_DATA["eta"] =  η
+			MOL_DATA["obt_fb"] =  Hfb.mbts[2]
+			MOL_DATA["tbt_fb"] =  Hfb.mbts[3]
+			close(fid)
+		end
+	else 
+		h_const, obt_hf, tbt_hf, obt_fb, tbt_fb, η, mf = ham.localized_ham_from_xyz(xyz_string, return_mf = true; kwargs...)
+		h_const = pyconvert(Float64, h_const)
+		obt_hf = pyconvert(Array{Float64}, obt_hf)
+		tbt_hf = pyconvert(Array{Float64}, tbt_hf)
+		obt_fb = pyconvert(Array{Float64}, obt_fb)
+		tbt_fb = pyconvert(Array{Float64}, tbt_fb)
+		η = pyconvert(Int64, η)
+		Hhf = eri_to_F_OP(obt_hf, tbt_hf, h_const)
+		Hfb = eri_to_F_OP(obt_fb, tbt_fb, h_const)
+		if DO_SAVE
+			println("""Saving molecular data in $FILENAME.h5 under group "MOLECULAR_DATA". """)
+			fid = h5open(FILENAME*".h5", "cw")
+			if haskey(fid, "MOLECULAR_DATA")
+				@warn "Trying to save molecular data to $FILENAME.h5, but MOLECULAR_DATA group already exists."
+				close(fid)
+				oldfile(FILENAME)
+				fid = h5open(FILENAME*".h5", "cw")
+			end
+			create_group(fid, "MOLECULAR_DATA")
+			MOL_DATA = fid["MOLECULAR_DATA"]
+			MOL_DATA["h_const"] =  Hhf.mbts[1]
+			MOL_DATA["obt_hf"] =  Hhf.mbts[2]
+			MOL_DATA["tbt_hf"] =  Hhf.mbts[3]
+			MOL_DATA["eta"] =  η
+			MOL_DATA["obt_fb"] =  Hfb.mbts[2]
+			MOL_DATA["tbt_fb"] =  Hfb.mbts[3]
+			close(fid)
+		end
+	end
+
+	return Hhf, Hfb, η, mf
+end
+
 function L1_ROUTINE(H, name; prefix="", dE = true, dE_tol = 1e-1)
 	#dE: whether full Hamiltonian is diagonalized for minimum 1-norm
 	#runs L1 routine for H, returns array of 1-norms Λ and unitary count Us as:
