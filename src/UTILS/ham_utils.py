@@ -92,7 +92,7 @@ def system_from_xyz(xyz, ferm = True, basis='sto3g', n_elec = False, spin=0):
             return ham, mol.n_electrons
 
 
-def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0):
+def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0, return_mf = False):
     mol = gto.M()
     mol.atom = xyz
     mol.basis = basis
@@ -121,7 +121,10 @@ def localized_ham_from_xyz(xyz, basis='sto3g', spin=0, charge=0):
     for i in range(4):
        g_fb = np.tensordot(g_fb, fb_mos, axes=1).transpose(3, 0, 1, 2)
     
-    return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron
+    if return_mf == False:
+        return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron
+    else:
+        return nuclear_repulsion, h_hf, g_hf, h_fb, g_fb, mol.nelectron, mf
 
 
 def xyz_to_type(xyz):
