@@ -13,7 +13,7 @@ const GRAD_for_CSA_SD = true #when true, gradients of the cost function for CSA-
 const CSA_GIVENS = false #whether unitary rotations for CSA are calculated as products of Givens or directly from e.g. SO(N) algebra exponential
 const DF_GIVENS = false #same as CSA_GIVENS but for Double-Factorization
 const OO_GIVENS = true #whether orbital-rotation optimization generates unitaries as Givens of SO(N) directly
-const OO_reps = 10 #how many parallel repetitions are done for orbital optimization routine
+const OO_reps = 1 #how many parallel repetitions are done for orbital optimization routine
 
 #Tolerances and constants
 const ϵ = 1e-5 #decomposition fermionic 2-norm tolerance
